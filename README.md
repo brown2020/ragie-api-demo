@@ -173,9 +173,8 @@ RAGIE_API_KEY=your_ragie_api_key
 ### File Management
 
 1. **Upload Documents**:
-   - Go to the \*\*File Management
 
-\*\* page and upload documents to Firebase Storage. The metadata for each document will be stored in Firestore.
+   - Go to the \*\*File Management\*\* page and upload documents to Firebase Storage. The metadata for each document will be stored in Firestore.
 
 2. **Manage Documents**:
    - View the list of uploaded documents, and upload them to Ragie for retrieval-augmented generation.
