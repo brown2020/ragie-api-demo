@@ -60,7 +60,7 @@ export default function Home() {
           <SignedOut>
             <div className="flex flex-col items-center mb-4">
               <div className="text-lg font-medium text-gray-700 mb-2 text-center">
-                Welcome to the D-ID API Demo!
+                Welcome to the Ragie API Demo!
               </div>
               <div className="text-sm text-gray-600 text-center">
                 This demo showcases the capabilities of the Ragie API, allowing
