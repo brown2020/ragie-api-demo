@@ -9,11 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^0.0.51",
-    "@ai-sdk/google": "^0.0.52",
-    "@ai-sdk/mistral": "^0.0.44",
-    "@ai-sdk/openai": "^0.0.68",
-    "@clerk/nextjs": "^5.6.0",
+    "@ai-sdk/anthropic": "^0.0.53",
+    "@ai-sdk/google": "^0.0.54",
+    "@ai-sdk/mistral": "^0.0.46",
+    "@ai-sdk/openai": "^0.0.70",
+    "@clerk/nextjs": "^6.0.2",
     "@stripe/react-stripe-js": "^2.8.0",
     "ai": "^3.3.44",
     "firebase": "^11.0.0",

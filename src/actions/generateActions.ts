@@ -21,7 +21,7 @@ async function getModel(modelName: string) {
     case "mistral-large":
       return mistral("mistral-large-latest");
     case "claude-3-5-sonnet":
-      return anthropic("claude-3-5-sonnet-20240620");
+      return anthropic("claude-3-5-sonnet-20241022");
     case "llama-v3p1-405b":
       return fireworks("accounts/fireworks/models/llama-v3p1-405b-instruct");
 
