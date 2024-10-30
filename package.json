@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^0.0.53",
-    "@ai-sdk/google": "^0.0.54",
+    "@ai-sdk/google": "^0.0.55",
     "@ai-sdk/mistral": "^0.0.46",
     "@ai-sdk/openai": "^0.0.70",
     "@clerk/nextjs": "^6.0.2",
@@ -18,8 +18,8 @@
     "ai": "^3.3.44",
     "firebase": "^11.0.0",
     "firebase-admin": "^12.5.0",
-    "lucide-react": "^0.453.0",
-    "next": "^14.2.13",
+    "lucide-react": "^0.454.0",
+    "next": "^15.0.2",
     "node-fetch": "^3.3.2",
     "openai": "^4.63.0",
     "ragie": "^1.1.0",
@@ -29,14 +29,14 @@
     "react-hot-toast": "^2.4.1",
     "react-spinners": "^0.14.1",
     "stripe": "^17.1.0",
-    "zustand": "^4.5.5"
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.5.5",
     "@types/react": "^18.3.8",
     "@types/react-dom": "^18",
-    "eslint": "^8.57.1",
-    "eslint-config-next": "^14.2.13",
+    "eslint": "^9.13.0",
+    "eslint-config-next": "^15.0.2",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.12",
     "typescript": "^5"
