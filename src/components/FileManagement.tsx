@@ -15,7 +15,7 @@ import { uploadToRagie } from "@/actions/uploadToRagie"; // Import the server ac
 
 // Define the type for document metadata
 interface DocumentData {
-  id: string; // Document ID in Firestore
+  id: string;
   name: string;
   url: string;
   uploadedToRagie: boolean;
@@ -53,7 +53,6 @@ export default function Dashboard() {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           console.log("File available at", downloadURL);
 
-          // Save metadata to Firestore
           const docRef = await addDoc(collection(db, "documents"), {
             name: file.name,
             url: downloadURL,
@@ -61,7 +60,6 @@ export default function Dashboard() {
             createdAt: new Date(),
           });
 
-          // Update documents state
           setDocuments((prev) => [
             ...prev,
             {
@@ -80,7 +78,10 @@ export default function Dashboard() {
     );
   }, []);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+    onDrop,
+    noClick: true, // Disable automatic click handling by Dropzone
+  });
 
   // Function to load all documents from Firestore
   const loadDocuments = async () => {
@@ -101,10 +102,9 @@ export default function Dashboard() {
     setRagieUploading((prev) => ({ ...prev, [document.id]: true }));
 
     try {
-      const response = await uploadToRagie(document.url, document.name); // Call server action
+      const response = await uploadToRagie(document.url, document.name);
       console.log("Uploaded to Ragie:", response);
 
-      // Update Firestore with the Ragie upload status
       await updateDoc(doc(db, "documents", document.id), {
         uploadedToRagie: true,
       });
@@ -145,7 +145,8 @@ export default function Dashboard() {
           <p className="text-blue-400">Drop the files here ...</p>
         ) : (
           <p className="text-gray-500">
-            {`Drag 'n' drop some files here, or click to select files`}
+            {`Drag 'n' drop some files here, or click the button below to select
+            files`}
           </p>
         )}
       </div>
@@ -153,7 +154,7 @@ export default function Dashboard() {
       {/* Upload Button */}
       <div className="mt-4 text-center">
         <button
-          onClick={() => {}}
+          onClick={open} // Triggers the file input to open
           disabled={uploading}
           className={`px-6 py-2 mt-4 text-white font-semibold rounded-md shadow-sm transition-colors ${
             uploading
