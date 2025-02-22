@@ -159,7 +159,7 @@ export default function Dashboard() {
           className={`px-6 py-2 mt-4 text-white font-semibold rounded-md shadow-sm transition-colors ${
             uploading
               ? "bg-gray-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              : "bg-blue-600 hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           }`}
         >
           {uploading ? "Uploading..." : "Upload Document"}
@@ -174,7 +174,7 @@ export default function Dashboard() {
         {documents.map((doc) => (
           <li
             key={doc.id}
-            className="flex items-center justify-between p-4 border rounded-lg shadow-sm bg-white"
+            className="flex items-center justify-between p-4 border rounded-lg shadow-xs bg-white"
           >
             <div className="flex items-center space-x-4">
               <a

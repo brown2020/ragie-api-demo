@@ -23,8 +23,8 @@
     "node-fetch": "^3.3.2",
     "openai": "^4.63.0",
     "ragie": "^1.1.0",
-    "react": "^18",
-    "react-dom": "^18",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "react-dropzone": "^14.2.3",
     "react-hot-toast": "^2.4.1",
     "react-spinners": "^0.15.0",
@@ -32,13 +32,14 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.8",
     "@types/node": "^22.5.5",
-    "@types/react": "^18.3.8",
-    "@types/react-dom": "^18",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
     "eslint": "^9.15.0",
     "eslint-config-next": "^15.0.2",
     "postcss": "^8.4.47",
-    "tailwindcss": "^3.4.15",
+    "tailwindcss": "^4.0.8",
     "typescript": "^5"
   }
 }

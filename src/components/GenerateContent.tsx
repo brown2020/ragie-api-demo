@@ -83,7 +83,7 @@ export default function GenerateContent() {
       </div>
 
       <h2 className="text-lg font-semibold text-gray-800">Generated Content</h2>
-      <div className="mt-4 p-4 border rounded-lg shadow-sm bg-gray-50">
+      <div className="mt-4 p-4 border rounded-lg shadow-xs bg-gray-50">
         <p className="text-gray-700 whitespace-pre-wrap">{generatedContent}</p>
       </div>
     </div>

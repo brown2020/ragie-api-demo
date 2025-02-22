@@ -59,7 +59,7 @@ export default function QueryRetrieval() {
         {retrievedChunks.map((chunk, index) => (
           <li
             key={index}
-            className="p-2 border rounded-lg shadow-sm bg-gray-50"
+            className="p-2 border rounded-lg shadow-xs bg-gray-50"
           >
             <p className="text-gray-700">{chunk.text}</p>
             <p className="text-xs text-gray-500">Score: {chunk.score}</p>
