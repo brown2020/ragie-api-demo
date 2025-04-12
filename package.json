@@ -28,7 +28,7 @@
     "react-dropzone": "^14.2.3",
     "react-hot-toast": "^2.4.1",
     "react-spinners": "^0.15.0",
-    "stripe": "^17.1.0",
+    "stripe": "^18.0.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
