@@ -1,12 +1,18 @@
 // app/actions/retrieveChunks.ts
 "use server";
 
+import { auth } from "@clerk/nextjs/server";
+
 export async function retrieveChunks(query: string) {
   console.log("Starting chunk retrieval...");
   console.log("Query:", query);
 
   const apiKey = process.env.RAGIE_API_KEY; // Use the Ragie API key securely from environment variables
   console.log("Ragie API Key:", apiKey ? "Key is set" : "Key is missing");
+
+  // Get the authenticated user's ID
+  const { userId } = await auth();
+  console.log("User ID for document filtering:", userId || "anonymous");
 
   try {
     const response = await fetch("https://api.ragie.ai/retrievals", {
@@ -19,6 +25,7 @@ export async function retrieveChunks(query: string) {
         query,
         filter: {
           scope: "tutorial", // Adjust the filter based on your use case
+          userId: userId || "anonymous", // Filter documents by user ID
         },
       }),
     });

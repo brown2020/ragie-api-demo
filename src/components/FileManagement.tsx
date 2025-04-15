@@ -12,6 +12,7 @@ import {
 import { db, storage } from "@/firebase/firebaseClient";
 import { UploadIcon } from "lucide-react";
 import { uploadToRagie } from "@/actions/uploadToRagie"; // Import the server action
+import { useAuthStore } from "@/zustand/useAuthStore"; // Import auth store
 
 // Define the type for document metadata
 interface DocumentData {
@@ -27,14 +28,22 @@ export default function Dashboard() {
   const [ragieUploading, setRagieUploading] = useState<Record<string, boolean>>(
     {}
   );
+  const uid = useAuthStore((state) => state.uid); // Get current user ID
 
   // Function to handle file upload to Firebase Storage
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
 
+    const uid = useAuthStore.getState().uid;
+    if (!uid) {
+      console.error("User not authenticated");
+      return;
+    }
+
     setUploading(true);
     const file = acceptedFiles[0];
-    const storageRef = ref(storage, `documents/${file.name}`);
+    // Store files in user-specific folder
+    const storageRef = ref(storage, `users/${uid}/documents/${file.name}`);
     const uploadTask = uploadBytesResumable(storageRef, file);
 
     uploadTask.on(
@@ -53,12 +62,16 @@ export default function Dashboard() {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           console.log("File available at", downloadURL);
 
-          const docRef = await addDoc(collection(db, "documents"), {
-            name: file.name,
-            url: downloadURL,
-            uploadedToRagie: false,
-            createdAt: new Date(),
-          });
+          // Store document metadata in user-specific collection
+          const docRef = await addDoc(
+            collection(db, `users/${uid}/documents`),
+            {
+              name: file.name,
+              url: downloadURL,
+              uploadedToRagie: false,
+              createdAt: new Date(),
+            }
+          );
 
           setDocuments((prev) => [
             ...prev,
@@ -85,8 +98,17 @@ export default function Dashboard() {
 
   // Function to load all documents from Firestore
   const loadDocuments = async () => {
+    const uid = useAuthStore.getState().uid;
+    if (!uid) {
+      console.error("User not authenticated");
+      return;
+    }
+
     try {
-      const querySnapshot = await getDocs(collection(db, "documents"));
+      // Get documents from user-specific collection
+      const querySnapshot = await getDocs(
+        collection(db, `users/${uid}/documents`)
+      );
       const docs = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -99,13 +121,20 @@ export default function Dashboard() {
 
   // Function to upload a document to Ragie using server action
   const handleUploadToRagie = async (document: DocumentData) => {
+    const uid = useAuthStore.getState().uid;
+    if (!uid) {
+      console.error("User not authenticated");
+      return;
+    }
+
     setRagieUploading((prev) => ({ ...prev, [document.id]: true }));
 
     try {
       const response = await uploadToRagie(document.url, document.name);
       console.log("Uploaded to Ragie:", response);
 
-      await updateDoc(doc(db, "documents", document.id), {
+      // Update document in user-specific collection
+      await updateDoc(doc(db, `users/${uid}/documents`, document.id), {
         uploadedToRagie: true,
       });
       setDocuments((prev) =>
@@ -120,10 +149,12 @@ export default function Dashboard() {
     }
   };
 
-  // Fetch documents on component mount
+  // Fetch documents on component mount or when uid changes
   useEffect(() => {
-    loadDocuments();
-  }, []);
+    if (uid) {
+      loadDocuments();
+    }
+  }, [uid]);
 
   return (
     <div className="w-full max-w-6xl mx-auto p-4 bg-white rounded-lg shadow-md">

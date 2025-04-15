@@ -2,6 +2,7 @@
 "use server";
 
 import fetch from "node-fetch"; // Use node-fetch for server-side fetch
+import { auth } from "@clerk/nextjs/server";
 
 export async function uploadToRagie(fileUrl: string, fileName: string) {
   console.log("Starting upload to Ragie...");
@@ -10,6 +11,9 @@ export async function uploadToRagie(fileUrl: string, fileName: string) {
 
   const apiKey = process.env.RAGIE_API_KEY; // Use environment variable for the API key
   console.log("Ragie API Key:", apiKey ? "Key is set" : "Key is missing");
+
+  // Get user information for scoping the document
+  const { userId } = await auth();
 
   try {
     // Fetch the file from Firebase Storage
@@ -31,9 +35,15 @@ export async function uploadToRagie(fileUrl: string, fileName: string) {
 
     const formData = new FormData();
     formData.append("file", fileBlob, fileName); // Append the Blob object with a file name
+
+    // Add userId to metadata for user-specific filtering
     formData.append(
       "metadata",
-      JSON.stringify({ title: fileName, scope: "tutorial" })
+      JSON.stringify({
+        title: fileName,
+        scope: "tutorial",
+        userId: userId || "anonymous", // Include user ID for filtering
+      })
     );
 
     console.log("Form Data Prepared:");

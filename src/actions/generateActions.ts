@@ -84,6 +84,10 @@ export async function generateFromRagie(
   query: string,
   modelName: string
 ): Promise<ReturnType<typeof generateResponse>> {
+  // Import auth here to avoid top-level await
+  const { auth } = await import("@clerk/nextjs/server");
+  const { userId } = await auth();
+
   // Step 1: Retrieve chunks from Ragie
   const ragieApiKey = process.env.RAGIE_API_KEY ?? "";
   const response = await fetch("https://api.ragie.ai/retrievals", {
@@ -92,7 +96,13 @@ export async function generateFromRagie(
       "Content-Type": "application/json",
       Authorization: `Bearer ${ragieApiKey}`,
     },
-    body: JSON.stringify({ query, filters: { scope: "tutorial" } }),
+    body: JSON.stringify({
+      query,
+      filter: {
+        scope: "tutorial",
+        userId: userId || "anonymous", // Filter by user ID
+      },
+    }),
   });
 
   if (!response.ok) {
