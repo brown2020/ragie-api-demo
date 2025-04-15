@@ -3,6 +3,7 @@ import { useState } from "react";
 import { retrieveChunks } from "@/actions/retrieveChunks"; // Import the retrieval function
 import { generateWithChunks } from "@/actions/generateActions"; // Import the new generation function
 import { readStreamableValue } from "ai/rsc"; // Import to handle streaming response
+import ReactMarkdown from "react-markdown"; // Import React Markdown for rendering
 
 // Define a type for the chunk structure
 type Chunk = {
@@ -84,7 +85,9 @@ export default function GenerateContent() {
 
       <h2 className="text-lg font-semibold text-gray-800">Generated Content</h2>
       <div className="mt-4 p-4 border rounded-lg shadow-xs bg-gray-50">
-        <p className="text-gray-700 whitespace-pre-wrap">{generatedContent}</p>
+        <div className="text-gray-700 markdown-content">
+          <ReactMarkdown>{generatedContent}</ReactMarkdown>
+        </div>
       </div>
     </div>
   );
