@@ -16,15 +16,19 @@ type RetrievalResponse = {
 export default function QueryRetrieval() {
   const [query, setQuery] = useState<string>("");
   const [retrievedChunks, setRetrievedChunks] = useState<Chunk[]>([]);
+  const [isRetrieving, setIsRetrieving] = useState<boolean>(false);
 
   // Handle the query and retrieve chunks from Ragie
   const handleQuery = async (): Promise<void> => {
     try {
+      setIsRetrieving(true);
       const data: RetrievalResponse = await retrieveChunks(query);
       console.log("Retrieved chunks from Ragie:", data);
       setRetrievedChunks(data.scored_chunks);
     } catch (error) {
       console.error("Error retrieving chunks from Ragie:", error);
+    } finally {
+      setIsRetrieving(false);
     }
   };
 
@@ -44,13 +48,14 @@ export default function QueryRetrieval() {
           value={query}
           onChange={handleInputChange}
           placeholder="Type your question here..."
-          className="w-full px-3 py-2 border rounded-md"
+          className="input-focus"
         />
         <button
           onClick={handleQuery}
-          className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          className={`btn-primary mt-3 ${isRetrieving ? "btn-loading" : ""}`}
+          disabled={isRetrieving}
         >
-          Retrieve Chunks
+          {isRetrieving ? "Retrieving..." : "Retrieve Chunks"}
         </button>
       </div>
 

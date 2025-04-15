@@ -72,14 +72,14 @@ export default function GenerateContent() {
           value={query}
           onChange={handleInputChange}
           placeholder="Type your question here..."
-          className="w-full px-3 py-2 border rounded-md"
+          className="input-focus"
         />
         <button
           onClick={handleAsk}
-          className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          disabled={isGenerating} // Disable button while generating
+          className={`btn-primary mt-3 ${isGenerating ? "btn-loading" : ""}`}
+          disabled={isGenerating}
         >
-          {status || "Ask Question"} {/* Display status or default text */}
+          {status || "Ask Question"}
         </button>
       </div>
 

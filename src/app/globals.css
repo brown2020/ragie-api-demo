@@ -69,3 +69,48 @@
   padding: 0.2em 0.4em;
   border-radius: 0.25em;
 }
+
+/* Professional interactive button style */
+.btn-primary {
+  @apply px-6 py-3 bg-blue-600 text-white font-medium rounded-md shadow-sm cursor-pointer;
+  @apply hover:bg-blue-700 hover:shadow-md hover:translate-y-[-2px];
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+  @apply transition-all duration-200 ease-in-out;
+  @apply disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-blue-400 disabled:hover:shadow-none disabled:hover:translate-y-0;
+  @apply active:bg-blue-800 active:scale-95;
+}
+
+/* Loading state animation */
+.btn-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-loading::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 300%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: loading-shine 1.5s infinite;
+}
+
+@keyframes loading-shine {
+  100% {
+    left: 100%;
+  }
+}
+
+/* Input focus styling */
+.input-focus {
+  @apply border border-gray-300 rounded-md px-3 py-2 w-full;
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  @apply transition-all duration-200 ease-in-out;
+}

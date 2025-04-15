@@ -168,7 +168,7 @@ export default function Dashboard() {
         className={`border-2 border-dashed rounded-lg p-10 flex justify-center items-center cursor-pointer transition duration-200 ${
           isDragActive
             ? "border-blue-400 bg-blue-50"
-            : "border-gray-300 bg-white"
+            : "border-gray-300 bg-white hover:border-blue-300 hover:bg-gray-50"
         }`}
       >
         <input {...getInputProps()} />
@@ -187,11 +187,7 @@ export default function Dashboard() {
         <button
           onClick={open} // Triggers the file input to open
           disabled={uploading}
-          className={`px-6 py-2 mt-4 text-white font-semibold rounded-md shadow-sm transition-colors ${
-            uploading
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          }`}
+          className={`btn-primary mt-3 ${uploading ? "btn-loading" : ""}`}
         >
           {uploading ? "Uploading..." : "Upload Document"}
         </button>
@@ -224,9 +220,13 @@ export default function Dashboard() {
                 <button
                   onClick={() => handleUploadToRagie(doc)}
                   disabled={ragieUploading[doc.id]}
-                  className="flex items-center space-x-2 text-blue-500 hover:text-blue-700"
+                  className={`flex items-center space-x-2 text-blue-600 px-3 py-1 rounded border border-blue-600 cursor-pointer hover:bg-blue-50 hover:shadow-sm hover:translate-y-[-1px] transition-all duration-200 ${
+                    ragieUploading[doc.id]
+                      ? "opacity-60 cursor-not-allowed hover:translate-y-0 hover:shadow-none"
+                      : ""
+                  }`}
                 >
-                  <UploadIcon className="w-5 h-5" />
+                  <UploadIcon className="w-4 h-4" />
                   <span>
                     {ragieUploading[doc.id]
                       ? "Uploading..."
