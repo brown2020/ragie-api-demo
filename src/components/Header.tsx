@@ -69,7 +69,7 @@ export default function Header() {
   return (
     <div className="flex h-14 items-center justify-between px-4 py-2">
       <Link href="/" className="font-medium text-xl">
-        Ragie API Demo
+        RAG Demo
       </Link>
 
       <SignedOut>

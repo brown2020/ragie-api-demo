@@ -16,7 +16,7 @@ export default function Home() {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-center h-full">
         <div className="flex flex-col gap-5 bg-white shadow-md rounded-lg p-8 max-w-md w-full">
-          <div className="text-2xl font-bold text-center">Ragie API Demo</div>
+          <div className="text-2xl font-bold text-center">RAG Demo</div>
 
           <SignedIn>
             <div className="flex flex-col items-center gap-3">
@@ -60,14 +60,14 @@ export default function Home() {
           <SignedOut>
             <div className="flex flex-col items-center mb-4">
               <div className="text-lg font-medium text-gray-700 mb-2 text-center">
-                Welcome to the Ragie API Demo!
+                Welcome to the RAG Demo!
               </div>
               <div className="text-sm text-gray-600 text-center">
-                This demo showcases the capabilities of the Ragie API, allowing
-                you to interact with various features and explore the potential
-                of integrating Ragie into your projects. Sign in to start
-                exploring the features, or learn more about what you can achieve
-                with this powerful tool.
+                This demo showcases the capabilities of a RAG as a service API,
+                allowing you to interact with various features and explore the
+                potential of integrating RAG into your projects. Sign in to
+                start exploring the features, or learn more about what you can
+                achieve with this powerful tool.
               </div>
             </div>
           </SignedOut>

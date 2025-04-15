@@ -6,8 +6,8 @@ import Header from "@/components/Header";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
-  title: "Ragie API Demo",
-  description: "Ragie API Demo: A simple demo for the Ragie API",
+  title: "RAG Demo",
+  description: "RAG Demo: A simple demo for a RAG as a service API",
 };
 
 export default function RootLayout({
