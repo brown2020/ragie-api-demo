@@ -33,10 +33,17 @@ export async function retrieveChunks(query: string) {
     console.log("Ragie API Response Status:", response.status);
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Error Response from Ragie API:", errorText);
-      throw new Error(
-        `Failed to retrieve chunks from Ragie with status: ${response.status}`
-      );
+      console.warn("Error Response from Ragie API:", errorText);
+      
+      if (response.status === 403) {
+        throw new Error("Access Forbidden: You do not have permission to access this resource. Please check your Ragie API key.");
+      } else if (response.status === 401) {
+        throw new Error("Unauthorized: Invalid Ragie API key.");
+      } else {
+        throw new Error(
+          `Failed to retrieve chunks from Ragie with status: ${response.status}. Details: ${errorText}`
+        );
+      }
     }
 
     const data = await response.json();

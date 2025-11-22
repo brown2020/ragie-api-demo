@@ -1,6 +1,6 @@
-# Ragie AI Retrieval-Augmented Generation (RAG) with Next.js 14
+# Ragie AI Retrieval-Augmented Generation (RAG) with Next.js 16
 
-Welcome to the **Ragie AI RAG Demo** — a Next.js 14 application that uses the Vercel AI SDK with server actions to implement Retrieval-Augmented Generation (RAG) using the Ragie API. This project demonstrates an effective way to leverage AI for context-aware content generation by retrieving and generating information based on user queries.
+Welcome to the **Ragie AI RAG Demo** — a Next.js 16 application that uses the Vercel AI SDK (v4) with server actions to implement Retrieval-Augmented Generation (RAG) using the Ragie API. This project demonstrates an effective way to leverage AI for context-aware content generation by retrieving and generating information based on user queries.
 
 ## Table of Contents
 
@@ -90,20 +90,22 @@ RAG is particularly valuable in applications such as customer support, research,
 
 ## Technologies Used
 
-- **Next.js 14**: A powerful React framework optimized for web application development.
-- **Vercel AI SDK**: A toolkit to enhance AI capabilities in Next.js applications.
+- **Next.js 16**: A powerful React framework optimized for web application development.
+- **React 19**: The latest version of the library for web and native user interfaces.
+- **Vercel AI SDK (v4)**: A toolkit to enhance AI capabilities in Next.js applications.
 - **Ragie API**: An API to retrieve content chunks from datasets for context-aware generation.
 - **Firebase**: For managing file uploads and storing metadata.
 - **TypeScript**: A superset of JavaScript for type-safe code.
-- **Tailwind CSS**: A utility-first CSS framework for efficient styling.
+- **Tailwind CSS (v4)**: A utility-first CSS framework for efficient styling.
 - **Clerk**: A platform for user authentication and access control.
+- **Stripe**: For handling payment processing.
 
 ## Getting Started
 
 ### Prerequisites
 
-- **Node.js** (v18 or higher)
-- **npm** (v9 or higher)
+- **Node.js** (v20 or higher recommended)
+- **npm** (v10 or higher)
 - A **Ragie API Key** (Sign up at [Ragie](https://docs.ragie.ai/docs/tutorial))
 - A **Firebase Project** (See [Firebase Setup](https://firebase.google.com/))
 - A **Clerk Account** (Sign up at [Clerk](https://clerk.dev))
@@ -197,17 +199,27 @@ RAGIE_API_KEY=your_ragie_api_key
 
 ### Server Action for Streaming
 
-The `generateWithChunks` function in `generateActions.ts` demonstrates how to use the Vercel AI SDK to handle streamed responses:
+The `generateWithChunks` function in `src/actions/generateActions.ts` demonstrates how to use the Vercel AI SDK (v4) to handle streamed responses using `streamText` and `createStreamableValue`.
 
 ```typescript
-export async function generateWithChunks(
-  chunks: string[],
-  query: string,
-  modelName: string
-): Promise<ReturnType<typeof generateResponse>> {
-  const chunkText = chunks.join("\n");
-  const systemPrompt = `You are "Ragie AI"...`;
-  return generateResponse(systemPrompt, query, modelName);
+import { createStreamableValue } from "ai/rsc";
+import { streamText } from "ai";
+
+// ... (model selection logic)
+
+async function generateResponse(systemPrompt: string, userPrompt: string, modelName: string) {
+  const model = await getModel(modelName);
+  
+  const result = streamText({
+    model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+  });
+
+  const stream = createStreamableValue(result.textStream);
+  return stream.value;
 }
 ```
 

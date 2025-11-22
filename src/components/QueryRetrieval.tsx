@@ -17,16 +17,19 @@ export default function QueryRetrieval() {
   const [query, setQuery] = useState<string>("");
   const [retrievedChunks, setRetrievedChunks] = useState<Chunk[]>([]);
   const [isRetrieving, setIsRetrieving] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Handle the query and retrieve chunks from Ragie
   const handleQuery = async (): Promise<void> => {
     try {
       setIsRetrieving(true);
+      setError(null);
       const data: RetrievalResponse = await retrieveChunks(query);
       console.log("Retrieved chunks from Ragie:", data);
       setRetrievedChunks(data.scored_chunks);
     } catch (error) {
-      console.error("Error retrieving chunks from Ragie:", error);
+      // console.warn("Error retrieving chunks from Ragie:", error);
+      setError(error instanceof Error ? error.message : "An unknown error occurred");
     } finally {
       setIsRetrieving(false);
     }
@@ -58,6 +61,12 @@ export default function QueryRetrieval() {
           {isRetrieving ? "Retrieving..." : "Retrieve Chunks"}
         </button>
       </div>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+          {error}
+        </div>
+      )}
 
       <h2 className="text-lg font-semibold text-gray-800">Retrieved Chunks</h2>
       <ul className="mt-4 space-y-2">

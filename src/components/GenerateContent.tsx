@@ -21,11 +21,13 @@ export default function GenerateContent() {
   const [generatedContent, setGeneratedContent] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [status, setStatus] = useState<string>(""); // State to indicate current status
+  const [error, setError] = useState<string | null>(null);
 
   // Handle both retrieval and generation in a single function
   const handleAsk = async (): Promise<void> => {
     try {
       setIsGenerating(true);
+      setError(null);
       setStatus("Retrieving..."); // Set status to retrieving
       setGeneratedContent(""); // Clear previous content
 
@@ -49,7 +51,8 @@ export default function GenerateContent() {
         }
       }
     } catch (error) {
-      console.error("Error during retrieval or generation:", error);
+      // console.warn("Error during retrieval or generation:", error);
+      setError(error instanceof Error ? error.message : "An unknown error occurred");
     } finally {
       setIsGenerating(false);
       setStatus(""); // Reset status after completion
@@ -82,6 +85,12 @@ export default function GenerateContent() {
           {status || "Ask Question"}
         </button>
       </div>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+          {error}
+        </div>
+      )}
 
       <h2 className="text-lg font-semibold text-gray-800">Generated Content</h2>
       <div className="mt-4 p-4 border rounded-lg shadow-xs bg-gray-50">
