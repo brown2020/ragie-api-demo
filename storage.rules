@@ -1,0 +1,27 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if the user is authenticated and matches the requested UID
+    function isUser(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // Match user-specific documents
+    match /users/{uid}/documents/{fileName} {
+      allow read, write: if isUser(uid);
+    }
+
+    // Legacy or global documents path (if needed, otherwise restrict)
+    match /documents/{fileName} {
+      allow read, write: if false; // Restrict access as we moved to user-scoped documents
+    }
+    
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

@@ -170,6 +170,22 @@ FIREBASE_UNIVERSE_DOMAIN=googleapis.com
 RAGIE_API_KEY=your_ragie_api_key
 ```
 
+### Firebase Security Rules
+
+This project uses Firebase for database and storage. To ensure your data is secure and users can only access their own information, you need to set up the appropriate security rules in your Firebase Console.
+
+We have included the rules files in the project root:
+
+1.  **Firestore Rules (`firestore.rules`)**:
+    -   Copy the contents of `firestore.rules`.
+    -   Go to **Firebase Console > Firestore Database > Rules**.
+    -   Paste the rules and click **Publish**.
+
+2.  **Storage Rules (`storage.rules`)**:
+    -   Copy the contents of `storage.rules`.
+    -   Go to **Firebase Console > Storage > Rules**.
+    -   Paste the rules and click **Publish**.
+
 ## Usage
 
 ### File Management
