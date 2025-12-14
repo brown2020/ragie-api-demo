@@ -202,7 +202,7 @@ RAGIE_API_KEY=your_ragie_api_key
 The `generateWithChunks` function in `src/actions/generateActions.ts` demonstrates how to use the Vercel AI SDK (v4) to handle streamed responses using `streamText` and `createStreamableValue`.
 
 ```typescript
-import { createStreamableValue } from "ai/rsc";
+import { createStreamableValue } from "@ai-sdk/rsc";
 import { streamText } from "ai";
 
 // ... (model selection logic)

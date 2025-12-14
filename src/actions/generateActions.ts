@@ -1,6 +1,6 @@
 "use server";
 
-import { createStreamableValue } from "ai/rsc";
+import { createStreamableValue } from "@ai-sdk/rsc";
 import { CoreMessage, streamText } from "ai";
 import { createOpenAI, openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { retrieveChunks } from "@/actions/retrieveChunks"; // Import the retrieval function
 import { generateWithChunks } from "@/actions/generateActions"; // Import the new generation function
-import { readStreamableValue } from "ai/rsc"; // Import to handle streaming response
+import { readStreamableValue } from "@ai-sdk/rsc"; // Import to handle streaming response
 import ReactMarkdown from "react-markdown"; // Import React Markdown for rendering
 
 // Define a type for the chunk structure
