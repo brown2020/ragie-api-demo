@@ -1,6 +1,6 @@
 # Ragie AI Retrieval-Augmented Generation (RAG) with Next.js 16
 
-Welcome to the **Ragie AI RAG Demo** — a Next.js 16 application that uses the Vercel AI SDK (v4) with server actions to implement Retrieval-Augmented Generation (RAG) using the Ragie API. This project demonstrates an effective way to leverage AI for context-aware content generation by retrieving and generating information based on user queries.
+Welcome to the **Ragie AI RAG Demo** — a Next.js 16 application that uses the Vercel AI SDK (`ai` v6) with Server Actions to implement Retrieval-Augmented Generation (RAG) using the Ragie API. This project demonstrates an effective way to leverage AI for context-aware content generation by retrieving and generating information based on user queries.
 
 ## Table of Contents
 
@@ -27,7 +27,7 @@ Welcome to the **Ragie AI RAG Demo** — a Next.js 16 application that uses the 
 
 ## Overview
 
-This project uses Next.js 14, Vercel AI SDK, and the Ragie API to build an interactive web application that utilizes Retrieval-Augmented Generation (RAG). The application enables users to upload documents, retrieve content chunks from them, and generate AI responses based on those chunks in real-time.
+This project uses Next.js 16, the Vercel AI SDK, and the Ragie API to build an interactive web application that utilizes Retrieval-Augmented Generation (RAG). The application enables users to upload documents, retrieve content chunks from them, and generate AI responses based on those chunks in real-time.
 
 ## Features
 
@@ -90,15 +90,15 @@ RAG is particularly valuable in applications such as customer support, research,
 
 ## Technologies Used
 
-- **Next.js 16**: A powerful React framework optimized for web application development.
-- **React 19**: The latest version of the library for web and native user interfaces.
-- **Vercel AI SDK (v4)**: A toolkit to enhance AI capabilities in Next.js applications.
+- **Next.js 16** (`16.1.1`): A powerful React framework optimized for web application development.
+- **React 19** (`19.2.3`): The latest version of the library for web and native user interfaces.
+- **Vercel AI SDK** (`ai@6.0.3`, `@ai-sdk/rsc@2.0.3`, `@ai-sdk/*` providers): A toolkit to enhance AI capabilities in Next.js applications.
 - **Ragie API**: An API to retrieve content chunks from datasets for context-aware generation.
-- **Firebase**: For managing file uploads and storing metadata.
+- **Firebase** (`firebase@12.6.0`, `firebase-admin@13.0.1`): For managing file uploads and storing metadata.
 - **TypeScript**: A superset of JavaScript for type-safe code.
 - **Tailwind CSS (v4)**: A utility-first CSS framework for efficient styling.
-- **Clerk**: A platform for user authentication and access control.
-- **Stripe**: For handling payment processing.
+- **Clerk** (`@clerk/nextjs@6.0.2`): A platform for user authentication and access control.
+- **Stripe** (`stripe@20.0.0`): For handling payment processing.
 
 ## Getting Started
 
@@ -215,7 +215,7 @@ We have included the rules files in the project root:
 
 ### Server Action for Streaming
 
-The `generateWithChunks` function in `src/actions/generateActions.ts` demonstrates how to use the Vercel AI SDK (v4) to handle streamed responses using `streamText` and `createStreamableValue`.
+The `generateWithChunks` function in `src/actions/generateActions.ts` demonstrates how to use the Vercel AI SDK (`ai`) to handle streamed responses using `streamText` and `createStreamableValue`.
 
 ```typescript
 import { createStreamableValue } from "@ai-sdk/rsc";
@@ -270,7 +270,7 @@ Deploy the application on Vercel:
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See [`LICENSE.md`](LICENSE.md) for details.
 
 ## Contact
 

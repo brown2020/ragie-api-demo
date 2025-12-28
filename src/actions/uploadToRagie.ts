@@ -1,16 +1,26 @@
 // app/actions/uploadToRagie.ts
 "use server";
 
-import fetch from "node-fetch"; // Use node-fetch for server-side fetch
 import { auth } from "@clerk/nextjs/server";
+import { ragieErrorResult, type RagieActionResult } from "@/lib/ragie-errors";
 
-export async function uploadToRagie(fileUrl: string, fileName: string) {
-  console.log("Starting upload to Ragie...");
-  console.log("File URL:", fileUrl);
-  console.log("File Name:", fileName);
+export async function uploadToRagie(
+  fileUrl: string,
+  fileName: string
+): Promise<RagieActionResult<unknown>> {
+  console.log("Starting upload to Ragie...", { fileName });
 
   const apiKey = process.env.RAGIE_API_KEY; // Use environment variable for the API key
-  console.log("Ragie API Key:", apiKey ? "Key is set" : "Key is missing");
+  if (!apiKey) {
+    return {
+      ok: false,
+      error: {
+        status: 500,
+        code: "RAGIE_API_KEY_MISSING",
+        message: "Missing `RAGIE_API_KEY` server environment variable.",
+      },
+    };
+  }
 
   // Get user information for scoping the document
   const { userId } = await auth();
@@ -19,9 +29,15 @@ export async function uploadToRagie(fileUrl: string, fileName: string) {
     // Fetch the file from Firebase Storage
     const fileResponse = await fetch(fileUrl);
     if (!fileResponse.ok) {
-      throw new Error(
-        `Failed to fetch the file from Firebase Storage: ${fileResponse.statusText}`
-      );
+      return {
+        ok: false,
+        error: {
+          status: fileResponse.status,
+          code: "FIREBASE_FILE_FETCH_FAILED",
+          message: `Failed to fetch the file from Firebase Storage (HTTP ${fileResponse.status}).`,
+          detail: await fileResponse.text().catch(() => undefined),
+        },
+      };
     }
 
     // Get the content type and handle the null case
@@ -46,9 +62,7 @@ export async function uploadToRagie(fileUrl: string, fileName: string) {
       })
     );
 
-    console.log("Form Data Prepared:");
-    console.log("File in FormData:", formData.get("file"));
-    console.log("Metadata in FormData:", formData.get("metadata"));
+    console.log("Uploading document to Ragie...", { fileName, userId: userId ?? "anonymous" });
 
     // Perform the upload request to Ragie API
     const response = await fetch("https://api.ragie.ai/documents", {
@@ -61,20 +75,30 @@ export async function uploadToRagie(fileUrl: string, fileName: string) {
       body: formData,
     });
 
-    console.log("Ragie API Response Status:", response.status);
-    console.log("Ragie API Response Headers:", response.headers);
-
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Error Response from Ragie API:", errorText);
-      throw new Error(`Upload to Ragie failed with status: ${response.status}`);
+      return await ragieErrorResult({
+        response,
+        endpoint: "https://api.ragie.ai/documents",
+        method: "POST",
+        fileUrl,
+      });
     }
 
     const data = await response.json();
-    console.log("Successful Upload to Ragie:", data);
-    return data; // Return any relevant response data
+    console.log("Successful upload to Ragie.", { fileName });
+    return { ok: true, data }; // Return any relevant response data
   } catch (error) {
     console.error("Error during upload to Ragie:", error);
-    throw error;
+    return {
+      ok: false,
+      error: {
+        status: 500,
+        code: "UPLOAD_TO_RAGIE_UNEXPECTED_ERROR",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unexpected error during upload to Ragie.",
+      },
+    };
   }
 }

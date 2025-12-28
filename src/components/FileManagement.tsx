@@ -13,6 +13,7 @@ import { db, storage } from "@/firebase/firebaseClient";
 import { UploadIcon } from "lucide-react";
 import { uploadToRagie } from "@/actions/uploadToRagie"; // Import the server action
 import { useAuthStore } from "@/zustand/useAuthStore"; // Import auth store
+import toast from "react-hot-toast";
 
 // Define the type for document metadata
 interface DocumentData {
@@ -130,8 +131,11 @@ export default function Dashboard() {
     setRagieUploading((prev) => ({ ...prev, [document.id]: true }));
 
     try {
-      const response = await uploadToRagie(document.url, document.name);
-      console.log("Uploaded to Ragie:", response);
+      const result = await uploadToRagie(document.url, document.name);
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
 
       // Update document in user-specific collection
       await updateDoc(doc(db, `users/${uid}/documents`, document.id), {
@@ -144,6 +148,9 @@ export default function Dashboard() {
       );
     } catch (error) {
       console.error("Error uploading to Ragie: ", error);
+      toast.error(
+        error instanceof Error ? error.message : "Error uploading to Ragie."
+      );
     } finally {
       setRagieUploading((prev) => ({ ...prev, [document.id]: false }));
     }
