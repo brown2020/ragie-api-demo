@@ -20,7 +20,7 @@
     "ai": "^6.0.3",
     "firebase": "^12.6.0",
     "firebase-admin": "^13.0.1",
-    "lucide-react": "^0.562.0",
+    "lucide-react": "^0.563.0",
     "next": "^16.0.3",
     "node-fetch": "^3.3.2",
     "openai": "^6.9.1",
