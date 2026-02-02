@@ -1,13 +1,16 @@
 // paymentActions.ts
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
-export async function createPaymentIntent(amount: number) {
-  await auth.protect();
+export async function createPaymentIntent(amount: number, userId: string) {
+  // Validate user is authenticated
+  if (!userId) {
+    throw new Error("User authentication required");
+  }
+
   const product = process.env.NEXT_PUBLIC_STRIPE_PRODUCT_NAME;
 
   try {
@@ -16,8 +19,8 @@ export async function createPaymentIntent(amount: number) {
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: "usd",
-      metadata: { product },
-      description: `Payment for product ${process.env.NEXT_PUBLIC_STRIPE_PRODUCT_NAME}`,
+      metadata: { product, userId },
+      description: `Payment for product ${product}`,
     });
 
     return paymentIntent.client_secret;
@@ -27,13 +30,19 @@ export async function createPaymentIntent(amount: number) {
   }
 }
 
-export async function validatePaymentIntent(paymentIntentId: string) {
-  await auth.protect();
+export async function validatePaymentIntent(
+  paymentIntentId: string,
+  userId: string
+) {
+  // Validate user is authenticated
+  if (!userId) {
+    throw new Error("User authentication required");
+  }
+
   try {
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
     if (paymentIntent.status === "succeeded") {
-      // Convert the Stripe object to a plain object
       return {
         id: paymentIntent.id,
         amount: paymentIntent.amount,

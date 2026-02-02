@@ -1,16 +1,28 @@
 // app/actions/uploadToRagie.ts
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
 import { ragieErrorResult, type RagieActionResult } from "@/lib/ragie-errors";
+
+const FETCH_TIMEOUT = 30000; // 30 seconds
 
 export async function uploadToRagie(
   fileUrl: string,
-  fileName: string
+  fileName: string,
+  userId: string
 ): Promise<RagieActionResult<unknown>> {
-  console.log("Starting upload to Ragie...", { fileName });
+  // Validate userId is provided
+  if (!userId) {
+    return {
+      ok: false,
+      error: {
+        status: 401,
+        code: "UNAUTHORIZED",
+        message: "User authentication required.",
+      },
+    };
+  }
 
-  const apiKey = process.env.RAGIE_API_KEY; // Use environment variable for the API key
+  const apiKey = process.env.RAGIE_API_KEY;
   if (!apiKey) {
     return {
       ok: false,
@@ -22,12 +34,14 @@ export async function uploadToRagie(
     };
   }
 
-  // Get user information for scoping the document
-  const { userId } = await auth();
-
   try {
-    // Fetch the file from Firebase Storage
-    const fileResponse = await fetch(fileUrl);
+    // Fetch the file from Firebase Storage with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+
+    const fileResponse = await fetch(fileUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
     if (!fileResponse.ok) {
       return {
         ok: false,
@@ -46,11 +60,10 @@ export async function uploadToRagie(
 
     // Convert the response to a Buffer
     const fileBuffer = await fileResponse.arrayBuffer();
-    const fileBlob = new Blob([fileBuffer], { type: contentType }); // Provide a default type if contentType is null
-    console.log("Fetched file from Firebase Storage.");
+    const fileBlob = new Blob([fileBuffer], { type: contentType });
 
     const formData = new FormData();
-    formData.append("file", fileBlob, fileName); // Append the Blob object with a file name
+    formData.append("file", fileBlob, fileName);
 
     // Add userId to metadata for user-specific filtering
     formData.append(
@@ -58,22 +71,24 @@ export async function uploadToRagie(
       JSON.stringify({
         title: fileName,
         scope: "tutorial",
-        userId: userId || "anonymous", // Include user ID for filtering
+        userId: userId,
       })
     );
 
-    console.log("Uploading document to Ragie...", { fileName, userId: userId ?? "anonymous" });
+    // Perform the upload request to Ragie API with timeout
+    const uploadController = new AbortController();
+    const uploadTimeoutId = setTimeout(() => uploadController.abort(), FETCH_TIMEOUT * 2);
 
-    // Perform the upload request to Ragie API
     const response = await fetch("https://api.ragie.ai/documents", {
       method: "POST",
       headers: {
         authorization: `Bearer ${apiKey}`,
-        // Do not manually set Content-Type when using FormData
         accept: "application/json",
       },
       body: formData,
+      signal: uploadController.signal,
     });
+    clearTimeout(uploadTimeoutId);
 
     if (!response.ok) {
       return await ragieErrorResult({
@@ -85,9 +100,19 @@ export async function uploadToRagie(
     }
 
     const data = await response.json();
-    console.log("Successful upload to Ragie.", { fileName });
-    return { ok: true, data }; // Return any relevant response data
+    return { ok: true, data };
   } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return {
+        ok: false,
+        error: {
+          status: 408,
+          code: "REQUEST_TIMEOUT",
+          message: "Request timed out. Please try again.",
+        },
+      };
+    }
+
     console.error("Error during upload to Ragie:", error);
     return {
       ok: false,

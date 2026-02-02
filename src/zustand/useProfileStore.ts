@@ -1,9 +1,15 @@
 import { create } from "zustand";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  increment,
+  runTransaction,
+} from "firebase/firestore";
 import { useAuthStore } from "./useAuthStore";
 import { db } from "@/firebase/firebaseClient";
 
-// Updated ProfileType to include new API keys
 export interface ProfileType {
   email: string;
   contactEmail: string;
@@ -11,15 +17,8 @@ export interface ProfileType {
   photoUrl: string;
   emailVerified: boolean;
   credits: number;
-  ragie_api_key: string;
-  openai_api_key: string;
-  anthropic_api_key: string; // New API key
-  google_gen_ai_api_key: string; // New API key
-  mistral_api_key: string; // New API key
-  fireworks_api_key: string; // New API key
 }
 
-// Updated defaultProfile with new API keys initialized
 const defaultProfile: ProfileType = {
   email: "",
   contactEmail: "",
@@ -27,12 +26,6 @@ const defaultProfile: ProfileType = {
   photoUrl: "",
   emailVerified: false,
   credits: 0,
-  ragie_api_key: "",
-  openai_api_key: "",
-  anthropic_api_key: "", // New API key default
-  google_gen_ai_api_key: "", // New API key default
-  mistral_api_key: "", // New API key default
-  fireworks_api_key: "", // New API key default
 };
 
 interface AuthState {
@@ -44,13 +37,12 @@ interface AuthState {
 
 interface ProfileState {
   profile: ProfileType;
-  fetchProfile: () => void;
+  fetchProfile: () => Promise<void>;
   updateProfile: (newProfile: Partial<ProfileType>) => Promise<void>;
   useCredits: (amount: number) => Promise<boolean>;
   addCredits: (amount: number) => Promise<void>;
 }
 
-// Merge profile with new API keys if they exist in authState
 const mergeProfileWithDefaults = (
   profile: Partial<ProfileType>,
   authState: AuthState
@@ -85,7 +77,6 @@ const useProfileStore = create<ProfileState>((set, get) => ({
           authPhotoUrl,
           authEmailVerified,
         });
-        console.log("Profile found:", newProfile);
       } else {
         newProfile = {
           email: authEmail || "",
@@ -94,17 +85,10 @@ const useProfileStore = create<ProfileState>((set, get) => ({
           photoUrl: authPhotoUrl || "",
           emailVerified: authEmailVerified || false,
           credits: 1000,
-          ragie_api_key: "",
-          openai_api_key: "",
-          anthropic_api_key: "", // New API key default
-          google_gen_ai_api_key: "", // New API key default
-          mistral_api_key: "", // New API key default
-          fireworks_api_key: "", // New API key default
         };
-        console.log("No profile found. Creating new profile document.");
+        await setDoc(userRef, newProfile);
       }
 
-      await setDoc(userRef, newProfile);
       set({ profile: newProfile });
     } catch (error) {
       console.error("Error fetching or creating profile:", error);
@@ -115,57 +99,76 @@ const useProfileStore = create<ProfileState>((set, get) => ({
     const uid = useAuthStore.getState().uid;
     if (!uid) return;
 
-    console.log("Updating profile:", newProfile);
-
     try {
       const userRef = doc(db, `users/${uid}/profile/userData`);
       const updatedProfile = { ...get().profile, ...newProfile };
 
-      set({ profile: updatedProfile });
       await updateDoc(userRef, updatedProfile);
-      console.log("Profile updated successfully");
+      set({ profile: updatedProfile });
     } catch (error) {
       console.error("Error updating profile:", error);
+      throw error;
     }
   },
 
+  // Use atomic transaction to prevent double-spending
   useCredits: async (amount: number) => {
     const uid = useAuthStore.getState().uid;
     if (!uid) return false;
 
-    const profile = get().profile;
-    if (profile.credits < amount) {
-      return false;
-    }
-
     try {
-      const newCredits = profile.credits - amount;
       const userRef = doc(db, `users/${uid}/profile/userData`);
 
-      await updateDoc(userRef, { credits: newCredits });
-      set({ profile: { ...profile, credits: newCredits } });
+      // Use transaction to ensure atomic read-modify-write
+      const result = await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(userRef);
+        if (!docSnap.exists()) {
+          throw new Error("Profile not found");
+        }
 
-      return true;
+        const currentCredits = docSnap.data().credits || 0;
+        if (currentCredits < amount) {
+          return false;
+        }
+
+        transaction.update(userRef, { credits: increment(-amount) });
+        return true;
+      });
+
+      if (result) {
+        // Update local state after successful transaction
+        const profile = get().profile;
+        set({ profile: { ...profile, credits: profile.credits - amount } });
+      }
+
+      return result;
     } catch (error) {
       console.error("Error using credits:", error);
       return false;
     }
   },
 
+  // Use atomic increment to prevent race conditions
   addCredits: async (amount: number) => {
     const uid = useAuthStore.getState().uid;
     if (!uid) return;
 
-    const profile = get().profile;
-    const newCredits = profile.credits + amount;
-
     try {
       const userRef = doc(db, `users/${uid}/profile/userData`);
 
-      await updateDoc(userRef, { credits: newCredits });
-      set({ profile: { ...profile, credits: newCredits } });
+      await updateDoc(userRef, { credits: increment(amount) });
+
+      // Re-fetch to get accurate value after increment
+      const docSnap = await getDoc(userRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        set({
+          profile: { ...get().profile, credits: data.credits || 0 },
+        });
+      }
     } catch (error) {
       console.error("Error adding credits:", error);
+      throw error;
     }
   },
 }));

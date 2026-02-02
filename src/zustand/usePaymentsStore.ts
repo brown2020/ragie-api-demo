@@ -6,6 +6,7 @@ import {
   where,
   getDocs,
   Timestamp,
+  orderBy,
 } from "firebase/firestore";
 import { useAuthStore } from "./useAuthStore";
 import toast from "react-hot-toast";
@@ -27,6 +28,15 @@ interface PaymentsStoreState {
   checkIfPaymentProcessed: (paymentId: string) => Promise<PaymentType | null>;
 }
 
+// Safe sort function that handles null createdAt values
+const sortPaymentsByDate = (payments: PaymentType[]): PaymentType[] => {
+  return [...payments].sort((a, b) => {
+    const timeA = a.createdAt?.toMillis() ?? 0;
+    const timeB = b.createdAt?.toMillis() ?? 0;
+    return timeB - timeA;
+  });
+};
+
 export const usePaymentsStore = create<PaymentsStoreState>((set) => ({
   payments: [],
   paymentsLoading: false,
@@ -35,24 +45,24 @@ export const usePaymentsStore = create<PaymentsStoreState>((set) => ({
   fetchPayments: async () => {
     const uid = useAuthStore.getState().uid;
     if (!uid) {
-      console.error("Invalid UID for fetchPayments");
+      set({ paymentsError: "User not authenticated", paymentsLoading: false });
       return;
     }
 
-    set({ paymentsLoading: true });
+    set({ paymentsLoading: true, paymentsError: null });
 
     try {
-      const q = query(collection(db, "users", uid, "payments"));
+      const q = query(
+        collection(db, "users", uid, "payments"),
+        orderBy("createdAt", "desc")
+      );
       const querySnapshot = await getDocs(q);
-      const payments = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
+      const payments: PaymentType[] = querySnapshot.docs.map((doc) => ({
+        id: doc.data().id || doc.id,
         amount: doc.data().amount,
-        createdAt: doc.data().createdAt,
+        createdAt: doc.data().createdAt || null,
         status: doc.data().status,
       }));
-
-      // Sort payments by createdAt with newest at the top
-      payments.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
 
       set({ payments, paymentsLoading: false });
     } catch (error: unknown) {
@@ -66,14 +76,14 @@ export const usePaymentsStore = create<PaymentsStoreState>((set) => ({
   addPayment: async (payment) => {
     const uid = useAuthStore.getState().uid;
     if (!uid) {
-      console.error("Invalid UID for addPayment");
+      toast.error("User not authenticated");
       return;
     }
 
     set({ paymentsLoading: true });
 
     try {
-      // Query to check if the payment with the same id already exists
+      // Check if payment already exists
       const q = query(
         collection(db, "users", uid, "payments"),
         where("id", "==", payment.id)
@@ -81,45 +91,35 @@ export const usePaymentsStore = create<PaymentsStoreState>((set) => ({
       const querySnapshot = await getDocs(q);
 
       if (!querySnapshot.empty) {
-        toast.error("Payment with this ID already exists.");
         set({ paymentsLoading: false });
-        return;
+        return; // Payment already exists, silently return
       }
 
-      const newPaymentDoc = await addDoc(
-        collection(db, "users", uid, "payments"),
-        {
-          id: payment.id,
-          amount: payment.amount,
-          createdAt: Timestamp.now(),
-          status: payment.status,
-        }
-      );
-
-      const newPayment = {
-        id: newPaymentDoc.id,
+      const createdAt = Timestamp.now();
+      await addDoc(collection(db, "users", uid, "payments"), {
+        id: payment.id,
         amount: payment.amount,
-        createdAt: Timestamp.now(),
+        createdAt,
+        status: payment.status,
+      });
+
+      const newPayment: PaymentType = {
+        id: payment.id,
+        amount: payment.amount,
+        createdAt,
         status: payment.status,
       };
 
-      set((state) => {
-        const updatedPayments = [...state.payments, newPayment];
-
-        // Sort payments by createdAt with newest at the top
-        updatedPayments.sort(
-          (a, b) => b.createdAt!.toMillis() - a.createdAt!.toMillis()
-        );
-
-        return { payments: updatedPayments, paymentsLoading: false };
-      });
-
-      toast.success("Payment added successfully.");
+      set((state) => ({
+        payments: sortPaymentsByDate([...state.payments, newPayment]),
+        paymentsLoading: false,
+      }));
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "An unknown error occurred";
       console.error("Error adding payment:", errorMessage);
       set({ paymentsError: errorMessage, paymentsLoading: false });
+      throw error;
     }
   },
 
@@ -127,18 +127,29 @@ export const usePaymentsStore = create<PaymentsStoreState>((set) => ({
     const uid = useAuthStore.getState().uid;
     if (!uid) return null;
 
-    const paymentsRef = collection(db, "users", uid, "payments");
-    const q = query(
-      paymentsRef,
-      where("id", "==", paymentId),
-      where("status", "==", "succeeded")
-    );
-    const querySnapshot = await getDocs(q);
+    try {
+      const paymentsRef = collection(db, "users", uid, "payments");
+      const q = query(
+        paymentsRef,
+        where("id", "==", paymentId),
+        where("status", "==", "succeeded")
+      );
+      const querySnapshot = await getDocs(q);
 
-    if (!querySnapshot.empty) {
-      return querySnapshot.docs[0].data() as PaymentType;
+      if (!querySnapshot.empty) {
+        const data = querySnapshot.docs[0].data();
+        return {
+          id: data.id,
+          amount: data.amount,
+          createdAt: data.createdAt || null,
+          status: data.status,
+        } as PaymentType;
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Error checking payment:", error);
+      return null;
     }
-
-    return null;
   },
 }));

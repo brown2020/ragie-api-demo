@@ -1,14 +1,13 @@
 "use client";
 import { useState } from "react";
-import { retrieveChunks } from "@/actions/retrieveChunks"; // Server action for Ragie retrieval
+import { retrieveChunks } from "@/actions/retrieveChunks";
+import { useAuthStore } from "@/zustand/useAuthStore";
 
-// Define a type for the chunk structure
 type Chunk = {
   text: string;
   score: number;
 };
 
-// Define a type for the server response
 type RetrievalResponse = {
   scored_chunks: Chunk[];
 };
@@ -18,26 +17,43 @@ export default function QueryRetrieval() {
   const [retrievedChunks, setRetrievedChunks] = useState<Chunk[]>([]);
   const [isRetrieving, setIsRetrieving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const uid = useAuthStore((state) => state.uid);
 
-  // Handle the query and retrieve chunks from Ragie
   const handleQuery = async (): Promise<void> => {
+    // Validate input
+    if (!query?.trim()) {
+      setError("Please enter a query");
+      return;
+    }
+
+    if (!uid) {
+      setError("Please sign in to retrieve content");
+      return;
+    }
+
     try {
       setIsRetrieving(true);
       setError(null);
-      const data: RetrievalResponse = await retrieveChunks(query);
-      console.log("Retrieved chunks from Ragie:", data);
-      setRetrievedChunks(data.scored_chunks);
+      const data: RetrievalResponse = await retrieveChunks(query, uid);
+      setRetrievedChunks(data.scored_chunks || []);
     } catch (error) {
-      // console.warn("Error retrieving chunks from Ragie:", error);
-      setError(error instanceof Error ? error.message : "An unknown error occurred");
+      setError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
     } finally {
       setIsRetrieving(false);
     }
   };
 
-  // Separate input change handler
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setQuery(e.target.value);
+    if (error) setError(null);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === "Enter" && !isRetrieving) {
+      handleQuery();
+    }
   };
 
   return (
@@ -50,13 +66,15 @@ export default function QueryRetrieval() {
           type="text"
           value={query}
           onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
           placeholder="Type your question here..."
           className="input-focus"
+          disabled={isRetrieving}
         />
         <button
           onClick={handleQuery}
           className={`btn-primary mt-3 ${isRetrieving ? "btn-loading" : ""}`}
-          disabled={isRetrieving}
+          disabled={isRetrieving || !uid}
         >
           {isRetrieving ? "Retrieving..." : "Retrieve Chunks"}
         </button>
@@ -69,17 +87,25 @@ export default function QueryRetrieval() {
       )}
 
       <h2 className="text-lg font-semibold text-gray-800">Retrieved Chunks</h2>
-      <ul className="mt-4 space-y-2">
-        {retrievedChunks.map((chunk, index) => (
-          <li
-            key={index}
-            className="p-2 border rounded-lg shadow-xs bg-gray-50"
-          >
-            <p className="text-gray-700">{chunk.text}</p>
-            <p className="text-xs text-gray-500">Score: {chunk.score}</p>
-          </li>
-        ))}
-      </ul>
+      {retrievedChunks.length === 0 ? (
+        <p className="text-gray-500 mt-4 italic">
+          No chunks retrieved yet. Enter a query to search your documents.
+        </p>
+      ) : (
+        <ul className="mt-4 space-y-2">
+          {retrievedChunks.map((chunk, index) => (
+            <li
+              key={index}
+              className="p-3 border rounded-lg shadow-sm bg-gray-50"
+            >
+              <p className="text-gray-700">{chunk.text}</p>
+              <p className="text-xs text-gray-500 mt-2">
+                Relevance Score: {(chunk.score * 100).toFixed(1)}%
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

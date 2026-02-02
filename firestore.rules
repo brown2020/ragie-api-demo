@@ -8,31 +8,69 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
+    // Helper function to check if a field is being modified
+    function fieldChanged(field) {
+      return request.resource.data[field] != resource.data[field];
+    }
+
     // Match the users collection
     match /users/{uid} {
-      // Allow users to read and write their own user document
-      allow read, write: if isUser(uid);
+      // Allow users to read their own user document
+      allow read: if isUser(uid);
+
+      // Allow write but protect sensitive fields from client modification
+      allow write: if isUser(uid)
+        && (!request.resource.data.keys().hasAny(['isAdmin']) || request.resource.data.isAdmin == resource.data.isAdmin)
+        && (!request.resource.data.keys().hasAny(['isAllowed']) || request.resource.data.isAllowed == resource.data.isAllowed)
+        && (!request.resource.data.keys().hasAny(['premium']) || request.resource.data.premium == resource.data.premium);
 
       // Match the profile subcollection
       match /profile/userData {
-        allow read, write: if isUser(uid);
+        allow read: if isUser(uid);
+
+        // Allow write but validate credits field (must be non-negative)
+        allow write: if isUser(uid)
+          && request.resource.data.credits >= 0;
       }
 
       // Match the payments subcollection
       match /payments/{paymentId} {
-        allow read, write: if isUser(uid);
+        // Allow read for user's payments
+        allow read: if isUser(uid);
+
+        // Allow create but require all necessary fields
+        allow create: if isUser(uid)
+          && request.resource.data.keys().hasAll(['id', 'amount', 'status', 'createdAt'])
+          && request.resource.data.amount > 0
+          && request.resource.data.status is string;
+
+        // Deny updates and deletes to prevent tampering
+        allow update, delete: if false;
       }
 
       // Match the documents subcollection
       match /documents/{documentId} {
-        allow read, write: if isUser(uid);
+        allow read: if isUser(uid);
+
+        // Allow create with required fields
+        allow create: if isUser(uid)
+          && request.resource.data.keys().hasAll(['name', 'url', 'uploadedToRagie'])
+          && request.resource.data.name is string
+          && request.resource.data.url is string;
+
+        // Allow updates only for uploadedToRagie field
+        allow update: if isUser(uid)
+          && request.resource.data.name == resource.data.name
+          && request.resource.data.url == resource.data.url;
+
+        // Allow delete
+        allow delete: if isUser(uid);
       }
     }
-    
+
     // Deny access to all other collections by default
     match /{document=**} {
       allow read, write: if false;
     }
   }
 }
-

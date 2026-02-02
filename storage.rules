@@ -2,26 +2,48 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    
+
     // Helper function to check if the user is authenticated and matches the requested UID
     function isUser(uid) {
       return request.auth != null && request.auth.uid == uid;
     }
 
-    // Match user-specific documents
-    match /users/{uid}/documents/{fileName} {
-      allow read, write: if isUser(uid);
+    // Maximum file size: 100MB
+    function isValidFileSize() {
+      return request.resource.size < 100 * 1024 * 1024;
     }
 
-    // Legacy or global documents path (if needed, otherwise restrict)
-    match /documents/{fileName} {
-      allow read, write: if false; // Restrict access as we moved to user-scoped documents
+    // Allowed file types for documents
+    function isValidDocumentType() {
+      return request.resource.contentType.matches('application/pdf')
+        || request.resource.contentType.matches('text/.*')
+        || request.resource.contentType.matches('application/msword')
+        || request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.*')
+        || request.resource.contentType.matches('image/.*');
     }
-    
-    // Default deny
+
+    // Match user-specific documents
+    match /users/{uid}/documents/{fileName} {
+      // Allow read for authenticated user's own documents
+      allow read: if isUser(uid);
+
+      // Allow write with size and type validation
+      allow write: if isUser(uid)
+        && isValidFileSize()
+        && isValidDocumentType();
+
+      // Allow delete
+      allow delete: if isUser(uid);
+    }
+
+    // Legacy or global documents path - deny access
+    match /documents/{fileName} {
+      allow read, write: if false;
+    }
+
+    // Default deny for all other paths
     match /{allPaths=**} {
       allow read, write: if false;
     }
   }
 }
-

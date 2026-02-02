@@ -1,20 +1,27 @@
 // app/actions/retrieveChunks.ts
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+const FETCH_TIMEOUT = 30000; // 30 seconds
 
-export async function retrieveChunks(query: string) {
-  console.log("Starting chunk retrieval...");
-  console.log("Query:", query);
+export async function retrieveChunks(query: string, userId: string) {
+  // Validate inputs
+  if (!query?.trim()) {
+    throw new Error("Query cannot be empty");
+  }
 
-  const apiKey = process.env.RAGIE_API_KEY; // Use the Ragie API key securely from environment variables
-  console.log("Ragie API Key:", apiKey ? "Key is set" : "Key is missing");
+  if (!userId) {
+    throw new Error("User authentication required");
+  }
 
-  // Get the authenticated user's ID
-  const { userId } = await auth();
-  console.log("User ID for document filtering:", userId || "anonymous");
+  const apiKey = process.env.RAGIE_API_KEY;
+  if (!apiKey) {
+    throw new Error("Ragie API key is not configured");
+  }
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+
     const response = await fetch("https://api.ragie.ai/retrievals", {
       method: "POST",
       headers: {
@@ -24,33 +31,37 @@ export async function retrieveChunks(query: string) {
       body: JSON.stringify({
         query,
         filter: {
-          scope: "tutorial", // Adjust the filter based on your use case
-          userId: userId || "anonymous", // Filter documents by user ID
+          scope: "tutorial",
+          userId: userId,
         },
       }),
+      signal: controller.signal,
     });
 
-    console.log("Ragie API Response Status:", response.status);
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.warn("Error Response from Ragie API:", errorText);
-      
+
       if (response.status === 403) {
-        throw new Error("Access Forbidden: You do not have permission to access this resource. Please check your Ragie API key.");
+        throw new Error(
+          "Access Forbidden: You do not have permission to access this resource."
+        );
       } else if (response.status === 401) {
         throw new Error("Unauthorized: Invalid Ragie API key.");
       } else {
         throw new Error(
-          `Failed to retrieve chunks from Ragie with status: ${response.status}. Details: ${errorText}`
+          `Failed to retrieve chunks from Ragie (HTTP ${response.status}).`
         );
       }
     }
 
     const data = await response.json();
-    console.log("Retrieved chunks successfully:", data);
-    return data; // Return the retrieved chunks
+    return data;
   } catch (error) {
-    console.error("Error during chunk retrieval:", error);
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Request timed out. Please try again.");
+    }
     throw error;
   }
 }
