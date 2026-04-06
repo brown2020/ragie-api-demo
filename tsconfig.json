@@ -33,7 +33,9 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    ".next/dev/types/**/*.ts",
+    "/home/user/workspace/next-builds/ragie-api-demo/types/**/*.ts",
+    "/home/user/workspace/next-builds/ragie-api-demo/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

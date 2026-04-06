@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
+  distDir: "/home/user/workspace/next-builds/ragie-api-demo",
   images: {
     remotePatterns: [
       {
