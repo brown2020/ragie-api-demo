@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
@@ -15,22 +15,33 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
+let app;
+let db: ReturnType<typeof getFirestore>;
+let auth: ReturnType<typeof getAuth>;
+let storage: ReturnType<typeof getStorage>;
+let analytics: ReturnType<typeof getAnalytics> | undefined;
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
-const storage = getStorage(app);
+try {
+  app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  auth = getAuth(app);
+  storage = getStorage(app);
 
-let analytics;
-
-if (typeof window !== "undefined") {
-  isSupported()
-    .then((supported) => {
-      if (supported) {
-        analytics = getAnalytics(app);
-      }
-    })
-    .catch(console.error);
+  if (typeof window !== "undefined") {
+    isSupported()
+      .then((supported) => {
+        if (supported) {
+          analytics = getAnalytics(app!);
+        }
+      })
+      .catch(console.error);
+  }
+} catch (e) {
+  console.warn("Firebase client init failed:", e);
+  // Provide fallback stubs so imports don't crash at build time
+  db = {} as ReturnType<typeof getFirestore>;
+  auth = {} as ReturnType<typeof getAuth>;
+  storage = {} as ReturnType<typeof getStorage>;
 }
 
 export { db, auth, storage, analytics };

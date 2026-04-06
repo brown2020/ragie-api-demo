@@ -1,0 +1,152 @@
+[
+  {
+    "route": "/dashboard",
+    "firstLoadUncompressedJsBytes": 1269473,
+    "firstLoadChunkPaths": [
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d6zlupctiie1.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0tan736mqpmab.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d3shmwh5_nmn.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/05f9t4n4triry.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/03kph3.y9mvlu.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0ocshtp639y0x.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/115dplafwys-z.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/04aem330ymbdp.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0xvbu-et~glls.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/09ho169qpdtw3.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0pqt~8bl3ukh4.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/turbopack-0q_50_3htx1lr.js"
+    ]
+  },
+  {
+    "route": "/payment-attempt",
+    "firstLoadUncompressedJsBytes": 1083810,
+    "firstLoadChunkPaths": [
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d6zlupctiie1.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0tan736mqpmab.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d3shmwh5_nmn.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/05f9t4n4triry.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0b_dg6lz1h9_o.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/115dplafwys-z.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/04aem330ymbdp.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0xvbu-et~glls.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/09ho169qpdtw3.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0pqt~8bl3ukh4.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/turbopack-0q_50_3htx1lr.js"
+    ]
+  },
+  {
+    "route": "/payment-success",
+    "firstLoadUncompressedJsBytes": 1073959,
+    "firstLoadChunkPaths": [
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d6zlupctiie1.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0tan736mqpmab.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d3shmwh5_nmn.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/05f9t4n4triry.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d92f.2wkdun-.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/115dplafwys-z.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/04aem330ymbdp.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0xvbu-et~glls.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/09ho169qpdtw3.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0pqt~8bl3ukh4.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/turbopack-0q_50_3htx1lr.js"
+    ]
+  },
+  {
+    "route": "/profile",
+    "firstLoadUncompressedJsBytes": 1072096,
+    "firstLoadChunkPaths": [
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d6zlupctiie1.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0tan736mqpmab.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d3shmwh5_nmn.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/05f9t4n4triry.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0_lvd2w4vx_tx.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/115dplafwys-z.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/04aem330ymbdp.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0xvbu-et~glls.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/09ho169qpdtw3.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0pqt~8bl3ukh4.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/turbopack-0q_50_3htx1lr.js"
+    ]
+  },
+  {
+    "route": "/",
+    "firstLoadUncompressedJsBytes": 1068320,
+    "firstLoadChunkPaths": [
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d6zlupctiie1.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0tan736mqpmab.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d3shmwh5_nmn.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/05f9t4n4triry.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/17mjw1ih3i7pl.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/115dplafwys-z.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/04aem330ymbdp.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0xvbu-et~glls.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/09ho169qpdtw3.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0pqt~8bl3ukh4.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/turbopack-0q_50_3htx1lr.js"
+    ]
+  },
+  {
+    "route": "/_not-found",
+    "firstLoadUncompressedJsBytes": 1065843,
+    "firstLoadChunkPaths": [
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d6zlupctiie1.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0tan736mqpmab.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d3shmwh5_nmn.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/05f9t4n4triry.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/115dplafwys-z.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/04aem330ymbdp.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0xvbu-et~glls.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/09ho169qpdtw3.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0pqt~8bl3ukh4.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/turbopack-0q_50_3htx1lr.js"
+    ]
+  },
+  {
+    "route": "/about",
+    "firstLoadUncompressedJsBytes": 1065843,
+    "firstLoadChunkPaths": [
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d6zlupctiie1.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0tan736mqpmab.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d3shmwh5_nmn.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/05f9t4n4triry.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/115dplafwys-z.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/04aem330ymbdp.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0xvbu-et~glls.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/09ho169qpdtw3.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0pqt~8bl3ukh4.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/turbopack-0q_50_3htx1lr.js"
+    ]
+  },
+  {
+    "route": "/privacy",
+    "firstLoadUncompressedJsBytes": 1065843,
+    "firstLoadChunkPaths": [
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d6zlupctiie1.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0tan736mqpmab.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d3shmwh5_nmn.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/05f9t4n4triry.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/115dplafwys-z.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/04aem330ymbdp.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0xvbu-et~glls.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/09ho169qpdtw3.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0pqt~8bl3ukh4.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/turbopack-0q_50_3htx1lr.js"
+    ]
+  },
+  {
+    "route": "/terms",
+    "firstLoadUncompressedJsBytes": 1065843,
+    "firstLoadChunkPaths": [
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d6zlupctiie1.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0tan736mqpmab.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0d3shmwh5_nmn.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/05f9t4n4triry.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/115dplafwys-z.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/04aem330ymbdp.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0xvbu-et~glls.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/09ho169qpdtw3.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/0pqt~8bl3ukh4.js",
+      "home/user/workspace/next-builds/ragie-api-demo/static/chunks/turbopack-0q_50_3htx1lr.js"
+    ]
+  }
+]

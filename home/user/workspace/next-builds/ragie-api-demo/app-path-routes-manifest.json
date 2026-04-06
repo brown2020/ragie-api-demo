@@ -1,0 +1,13 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/about/page": "/about",
+  "/dashboard/page": "/dashboard",
+  "/favicon.ico/route": "/favicon.ico",
+  "/page": "/",
+  "/payment-attempt/page": "/payment-attempt",
+  "/payment-success/page": "/payment-success",
+  "/privacy/page": "/privacy",
+  "/profile/page": "/profile",
+  "/terms/page": "/terms"
+}

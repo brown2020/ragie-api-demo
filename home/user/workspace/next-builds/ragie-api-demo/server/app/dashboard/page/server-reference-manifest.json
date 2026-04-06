@@ -1,0 +1,41 @@
+{
+  "node": {
+    "707694bb7d5c5b10a4dda08c5a4765235dedce0c55": {
+      "workers": {
+        "app/dashboard/page": {
+          "moduleId": 57319,
+          "async": false,
+          "exportedName": "uploadToRagie",
+          "filename": "src/actions/uploadToRagie.ts"
+        }
+      },
+      "exportedName": "uploadToRagie",
+      "filename": "src/actions/uploadToRagie.ts"
+    },
+    "603736f708f35635cd88aca6fd878e1a350d666711": {
+      "workers": {
+        "app/dashboard/page": {
+          "moduleId": 57319,
+          "async": false,
+          "exportedName": "retrieveChunks",
+          "filename": "src/actions/retrieveChunks.ts"
+        }
+      },
+      "exportedName": "retrieveChunks",
+      "filename": "src/actions/retrieveChunks.ts"
+    },
+    "707964a7ddeee59b3a31c9a985bc175755b9b9b45b": {
+      "workers": {
+        "app/dashboard/page": {
+          "moduleId": 57319,
+          "async": false,
+          "exportedName": "generateWithChunks",
+          "filename": "src/actions/generateActions.ts"
+        }
+      },
+      "exportedName": "generateWithChunks",
+      "filename": "src/actions/generateActions.ts"
+    }
+  },
+  "edge": {}
+}
