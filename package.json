@@ -31,7 +31,8 @@
     "react-spinners": "^0.17.0",
     "stripe": "^22.0.1",
     "zod": "^4.3.6",
-    "zustand": "^5.0.12"
+    "zustand": "^5.0.12",
+    "cookies-next": "^5.1.0"
   },
   "devDependencies": {
     "@eslint/compat": "^2.0.5",
