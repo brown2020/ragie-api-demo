@@ -41,8 +41,6 @@ export async function retrieveChunks(query: string, userId: string) {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      const errorText = await response.text();
-
       if (response.status === 403) {
         throw new Error(
           "Access Forbidden: You do not have permission to access this resource."

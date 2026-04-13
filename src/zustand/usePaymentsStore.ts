@@ -68,7 +68,7 @@ export const usePaymentsStore = create<PaymentsStoreState>((set) => ({
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "An unknown error occurred";
-      console.error("Error fetching payments:", errorMessage);
+
       set({ paymentsError: errorMessage, paymentsLoading: false });
     }
   },
@@ -117,7 +117,7 @@ export const usePaymentsStore = create<PaymentsStoreState>((set) => ({
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "An unknown error occurred";
-      console.error("Error adding payment:", errorMessage);
+
       set({ paymentsError: errorMessage, paymentsLoading: false });
       throw error;
     }
@@ -147,8 +147,7 @@ export const usePaymentsStore = create<PaymentsStoreState>((set) => ({
       }
 
       return null;
-    } catch (error) {
-      console.error("Error checking payment:", error);
+    } catch {
       return null;
     }
   },

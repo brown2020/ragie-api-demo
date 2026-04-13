@@ -45,8 +45,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             // Clean up URL
             window.history.replaceState(null, "", window.location.pathname);
           })
-          .catch((error) => {
-            console.error("Email link sign-in error:", error);
+          .catch(() => {
             toast.error("Failed to sign in with email link");
           })
           .finally(() => setLoading(false));
@@ -63,8 +62,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       await signInWithPopup(auth, provider);
       toast.success("Successfully signed in with Google!");
       onClose();
-    } catch (error) {
-      console.error("Google sign-in error:", error);
+    } catch {
       toast.error("Failed to sign in with Google");
     } finally {
       setLoading(false);
@@ -89,7 +87,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       }
       onClose();
     } catch (error) {
-      console.error("Email/password auth error:", error);
       const errorMessage = error instanceof Error ? error.message : "Authentication failed";
       toast.error(errorMessage.replace("Firebase: ", "").replace(/\(auth\/.*\)/, "").trim());
     } finally {
@@ -114,8 +111,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       window.localStorage.setItem("emailForSignIn", email);
       setEmailLinkSent(true);
       toast.success("Sign-in link sent to your email!");
-    } catch (error) {
-      console.error("Email link error:", error);
+    } catch {
       toast.error("Failed to send sign-in link");
     } finally {
       setLoading(false);

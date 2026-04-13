@@ -15,17 +15,6 @@ function safeTruncate(input: string, maxLen: number) {
   return `${input.slice(0, maxLen)}…`;
 }
 
-function redactUrl(rawUrl: string) {
-  try {
-    const url = new URL(rawUrl);
-    url.search = "";
-    url.hash = "";
-    return url.toString();
-  } catch {
-    return "<invalid-url>";
-  }
-}
-
 async function readResponseBody(response: Response) {
   const contentType = response.headers.get("content-type") ?? "";
   const text = await response.text().catch(() => "");
@@ -97,11 +86,8 @@ function toUserMessage(status: number, detail?: string) {
 
 export async function ragieErrorResult(params: {
   response: Response;
-  endpoint: string;
-  method: string;
-  fileUrl?: string;
 }) : Promise<RagieActionResult<never>> {
-  const { response, endpoint, method, fileUrl } = params;
+  const { response } = params;
 
   const requestId =
     response.headers.get("x-request-id") ??
@@ -127,16 +113,6 @@ export async function ragieErrorResult(params: {
               : response.status >= 500
                 ? "RAGIE_SERVER_ERROR"
                 : "RAGIE_REQUEST_FAILED";
-
-  // High-signal, non-secret server log for debugging.
-  console.error("Ragie API request failed", {
-    endpoint,
-    method,
-    status: response.status,
-    requestId,
-    fileUrl: fileUrl ? redactUrl(fileUrl) : undefined,
-    detail: detail ? safeTruncate(detail, 500) : undefined,
-  });
 
   return {
     ok: false,

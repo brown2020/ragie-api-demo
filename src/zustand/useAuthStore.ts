@@ -47,10 +47,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   ...defaultAuthState,
 
   setAuthDetails: async (details: Partial<AuthState>) => {
-    const { ...oldState } = get();
-    const newState = { ...oldState, ...details };
-    set(newState);
-    await updateUserDetailsInFirestore(newState, get().uid);
+    set(details);
+    await updateUserDetailsInFirestore({ ...get(), ...details }, get().uid);
   },
 
   clearAuthDetails: () => set({ ...defaultAuthState }),
@@ -62,8 +60,6 @@ async function updateUserDetailsInFirestore(
 ) {
   if (uid) {
     const userRef = doc(db, `users/${uid}`);
-    console.log("Updating auth details in Firestore:", details);
-
     // Create a sanitized object for Firestore
     const sanitizedDetails = {
       firebaseUid: details.firebaseUid,
@@ -83,9 +79,8 @@ async function updateUserDetailsInFirestore(
 
     try {
       await setDoc(userRef, sanitizedDetails, { merge: true });
-      console.log("Auth details updated successfully in Firestore.");
-    } catch (error) {
-      console.error("Error updating auth details in Firestore:", error);
+    } catch {
+      // Firestore sync failure is non-critical — local state is already set
     }
   }
 }
