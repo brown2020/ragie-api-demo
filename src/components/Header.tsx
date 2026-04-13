@@ -22,8 +22,8 @@ export default function Header() {
     try {
       await signOut(auth);
       setShowUserMenu(false);
-    } catch (error) {
-      console.error("Error signing out:", error);
+    } catch {
+      // Sign-out failure is non-critical — Firebase will clear session on next load
     }
   };
 
@@ -54,7 +54,7 @@ export default function Header() {
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2 focus:outline-none"
+                  className="flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-full"
                 >
                   {authPhotoUrl ? (
                     <Image

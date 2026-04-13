@@ -34,8 +34,7 @@ export default function PaymentCheckoutPage({ amount }: Props) {
           uid
         );
         if (secret) setClientSecret(secret);
-      } catch (error) {
-        console.error("Failed to initialize payment:", error);
+      } catch {
         setErrorMessage("Failed to initialize payment. Please try again.");
       }
     }
@@ -72,9 +71,8 @@ export default function PaymentCheckoutPage({ amount }: Props) {
       if (error) {
         setErrorMessage(error.message || "Payment failed");
       }
-    } catch (error) {
+    } catch {
       setErrorMessage("Payment validation failed. Please try again.");
-      console.error("Payment validation error:", error);
     }
 
     setLoading(false);

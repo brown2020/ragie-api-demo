@@ -91,12 +91,7 @@ export async function uploadToRagie(
     clearTimeout(uploadTimeoutId);
 
     if (!response.ok) {
-      return await ragieErrorResult({
-        response,
-        endpoint: "https://api.ragie.ai/documents",
-        method: "POST",
-        fileUrl,
-      });
+      return await ragieErrorResult({ response });
     }
 
     const data = await response.json();
@@ -113,7 +108,6 @@ export async function uploadToRagie(
       };
     }
 
-    console.error("Error during upload to Ragie:", error);
     return {
       ok: false,
       error: {

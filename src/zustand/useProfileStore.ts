@@ -49,7 +49,7 @@ const mergeProfileWithDefaults = (
 ): ProfileType => ({
   ...defaultProfile,
   ...profile,
-  credits: profile.credits && profile.credits >= 100 ? profile.credits : 1000,
+  credits: profile.credits !== undefined && profile.credits >= 100 ? profile.credits : 1000,
   email: authState.authEmail || profile.email || "",
   contactEmail: profile.contactEmail || authState.authEmail || "",
   displayName: profile.displayName || authState.authDisplayName || "",
@@ -90,8 +90,8 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       }
 
       set({ profile: newProfile });
-    } catch (error) {
-      console.error("Error fetching or creating profile:", error);
+    } catch {
+      // Profile fetch/create failure handled silently — retried on next access
     }
   },
 
@@ -106,7 +106,6 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       await updateDoc(userRef, updatedProfile);
       set({ profile: updatedProfile });
     } catch (error) {
-      console.error("Error updating profile:", error);
       throw error;
     }
   },
@@ -126,7 +125,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
           throw new Error("Profile not found");
         }
 
-        const currentCredits = docSnap.data().credits || 0;
+        const currentCredits = docSnap.data().credits ?? 0;
         if (currentCredits < amount) {
           return false;
         }
@@ -142,8 +141,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       }
 
       return result;
-    } catch (error) {
-      console.error("Error using credits:", error);
+    } catch {
       return false;
     }
   },
@@ -163,11 +161,10 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       if (docSnap.exists()) {
         const data = docSnap.data();
         set({
-          profile: { ...get().profile, credits: data.credits || 0 },
+          profile: { ...get().profile, credits: data.credits ?? 0 },
         });
       }
     } catch (error) {
-      console.error("Error adding credits:", error);
       throw error;
     }
   },

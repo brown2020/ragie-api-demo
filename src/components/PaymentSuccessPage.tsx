@@ -74,8 +74,7 @@ export default function PaymentSuccessPage({ payment_intent }: Props) {
           try {
             await addCredits(creditsToAdd);
             toast.success(`${creditsToAdd.toLocaleString()} credits added!`);
-          } catch (creditError) {
-            console.error("Error adding credits:", creditError);
+          } catch {
             toast.error("Payment recorded but credits not added. Please contact support.");
           }
 
@@ -89,8 +88,7 @@ export default function PaymentSuccessPage({ payment_intent }: Props) {
         } else {
           setMessage("Payment validation failed");
         }
-      } catch (error) {
-        console.error("Error handling payment success:", error);
+      } catch {
         setMessage("Error validating payment. Please contact support.");
       } finally {
         setLoading(false);

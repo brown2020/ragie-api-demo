@@ -53,13 +53,10 @@ export default function FileManagement() {
 
       uploadTask.on(
         "state_changed",
-        (snapshot) => {
-          const progress =
-            (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          console.log("Upload is " + progress + "% done");
+        () => {
+          // Progress tracking handled by uploading state
         },
-        async (error) => {
-          console.error("Upload failed", error);
+        async () => {
           toast.error("Upload failed. Please try again.");
           setUploading(false);
         },
@@ -88,13 +85,12 @@ export default function FileManagement() {
               },
             ]);
             toast.success("File uploaded successfully");
-          } catch (error) {
-            console.error("Error saving document metadata: ", error);
+          } catch {
             // Rollback: delete the uploaded file if metadata save fails
             try {
               await deleteObject(storageRef);
-            } catch (deleteError) {
-              console.error("Error cleaning up orphaned file:", deleteError);
+            } catch {
+              // Best-effort cleanup
             }
             toast.error("Failed to save file. Please try again.");
           } finally {
@@ -123,8 +119,7 @@ export default function FileManagement() {
         ...doc.data(),
       })) as DocumentData[];
       setDocuments(docs);
-    } catch (error) {
-      console.error("Error loading documents: ", error);
+    } catch {
       toast.error("Failed to load documents");
     }
   }, [uid]);
@@ -154,7 +149,6 @@ export default function FileManagement() {
       );
       toast.success("Uploaded to Ragie successfully");
     } catch (error) {
-      console.error("Error uploading to Ragie: ", error);
       toast.error(
         error instanceof Error ? error.message : "Error uploading to Ragie."
       );

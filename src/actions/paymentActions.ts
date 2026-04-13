@@ -24,8 +24,7 @@ export async function createPaymentIntent(amount: number, userId: string) {
     });
 
     return paymentIntent.client_secret;
-  } catch (error) {
-    console.error("Error creating payment intent:", error);
+  } catch {
     throw new Error("Failed to create payment intent");
   }
 }
@@ -55,8 +54,7 @@ export async function validatePaymentIntent(
     } else {
       throw new Error("Payment was not successful");
     }
-  } catch (error) {
-    console.error("Error validating payment intent:", error);
+  } catch {
     throw new Error("Failed to validate payment intent");
   }
 }
