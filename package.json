@@ -6,22 +6,24 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.69",
-    "@ai-sdk/google": "^3.0.63",
+    "@ai-sdk/anthropic": "^3.0.71",
+    "@ai-sdk/google": "^3.0.64",
     "@ai-sdk/mistral": "^3.0.30",
-    "@ai-sdk/openai": "^3.0.52",
-    "@ai-sdk/rsc": "^2.0.159",
-    "@stripe/react-stripe-js": "^6.1.0",
+    "@ai-sdk/openai": "^3.0.53",
+    "@ai-sdk/rsc": "^2.0.168",
+    "@stripe/react-stripe-js": "^6.2.0",
     "@stripe/stripe-js": "^9.2.0",
     "@tailwindcss/typography": "^0.5.19",
-    "ai": "^6.0.159",
+    "ai": "^6.0.168",
+    "cookies-next": "^6.1.1",
+    "eslint-plugin-react-hooks": "^6.1.1",
     "firebase": "^12.12.0",
     "firebase-admin": "^13.8.0",
-    "lucide-react": "0.468.0",
-    "next": "^16.2.3",
+    "lucide-react": "1.8.0",
+    "next": "^16.2.4",
     "openai": "^6.34.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
@@ -29,10 +31,9 @@
     "react-hot-toast": "^2.6.0",
     "react-markdown": "^10.1.0",
     "react-spinners": "^0.17.0",
-    "stripe": "^22.0.1",
+    "stripe": "^22.0.2",
     "zod": "^4.3.6",
-    "zustand": "^5.0.12",
-    "cookies-next": "^6.1.1"
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@eslint/compat": "^2.0.5",
@@ -40,8 +41,9 @@
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "eslint": "^10.2.0",
-    "postcss": "^8.5.9",
+    "eslint": "^10.2.1",
+    "eslint-config-next": "^16.2.4",
+    "postcss": "^8.5.10",
     "tailwindcss": "^4.2.2",
     "typescript": "^6"
   }
