@@ -11,23 +11,23 @@
 
 ## Current State
 
-- Phase: Preflight and Repo Docs
-- Task: T-001
-- Status: Ready for commit-push checkpoint
-- Last command: npm run lint
-- Last result: Passed after `npm ci` refreshed the local install from package-lock.json
-- Last pushed commit: f44fe6f8af4dd0bbbd8d1daa3fb723e384475d1f
-- Branch sync: dev matches origin/dev before report/doc edits
-- Working tree: Dirty with in-scope run reports and repo guidance/spec docs
-- Next action: Inspect diff, commit and push preflight/docs phase
+- Phase: Baseline Validation
+- Task: T-002
+- Status: Baseline validation ready for commit-push checkpoint
+- Last command: npm run build
+- Last result: Passed
+- Last pushed commit: add55cdff589002540feb02c2f44c6cfd2d6007d
+- Branch sync: dev matches origin/dev before baseline report edits
+- Working tree: Dirty with in-scope baseline report updates
+- Next action: Inspect diff, commit and push baseline report
 
 ## Dirty File Classification
 
 | Path | Classification | Owner/Reason |
 | --- | --- | --- |
-| AGENTS.md | Safe-to-commit | Repo guidance created by Preflight and Repo Docs phase |
-| SPEC.md | Safe-to-commit | Current-state spec created by Preflight and Repo Docs phase |
-| agent-runs/2026-06-20-codebase-pass/* | Safe-to-commit | Run reports and workflow ledger |
+| agent-runs/2026-06-20-codebase-pass/02-baseline-validation.md | Safe-to-commit | Baseline validation report |
+| agent-runs/2026-06-20-codebase-pass/run-state.md | Safe-to-commit | Workflow ledger update |
+| agent-runs/2026-06-20-codebase-pass/task-queue.md | Safe-to-commit | Task status update |
 
 ## Blockers
 
@@ -37,3 +37,4 @@
 
 - Potential workflow skill clarification for absent `origin/dev` recorded in `skill-improvement-log.md`.
 - `npm ci` reported 18 audit vulnerabilities; defer local audit/package cleanup to the package cleanup phase.
+- No test script is defined in `package.json`; `npm run build` is the closest available type/runtime gate.
