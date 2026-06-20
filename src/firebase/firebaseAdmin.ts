@@ -38,3 +38,28 @@ try {
 }
 
 export { adminBucket, adminDb, adminAuth, admin };
+
+export async function verifyFirebaseIdToken(idToken: string): Promise<string> {
+  if (!idToken) {
+    throw new Error("User authentication required");
+  }
+
+  if (typeof adminAuth.verifyIdToken !== "function") {
+    throw new Error("Firebase Admin Auth is not configured");
+  }
+
+  const decodedToken = await adminAuth.verifyIdToken(idToken);
+  if (!decodedToken.uid) {
+    throw new Error("Invalid Firebase authentication token");
+  }
+
+  return decodedToken.uid;
+}
+
+export function getAdminDb(): Firestore {
+  if (typeof adminDb.doc !== "function") {
+    throw new Error("Firebase Admin Firestore is not configured");
+  }
+
+  return adminDb;
+}

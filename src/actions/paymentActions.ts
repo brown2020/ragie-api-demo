@@ -1,14 +1,16 @@
 // paymentActions.ts
 "use server";
 
+import { getAdminDb, verifyFirebaseIdToken, admin } from "@/firebase/firebaseAdmin";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
-export async function createPaymentIntent(amount: number, userId: string) {
-  // Validate user is authenticated
-  if (!userId) {
-    throw new Error("User authentication required");
+export async function createPaymentIntent(amount: number, idToken: string) {
+  const uid = await verifyFirebaseIdToken(idToken);
+
+  if (!Number.isInteger(amount) || amount <= 0) {
+    throw new Error("Payment amount must be a positive integer");
   }
 
   const product = process.env.NEXT_PUBLIC_STRIPE_PRODUCT_NAME;
@@ -19,7 +21,7 @@ export async function createPaymentIntent(amount: number, userId: string) {
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: "usd",
-      metadata: { product, userId },
+      metadata: { product, userId: uid },
       description: `Payment for product ${product}`,
     });
 
@@ -29,32 +31,75 @@ export async function createPaymentIntent(amount: number, userId: string) {
   }
 }
 
-export async function validatePaymentIntent(
+export async function processPaymentIntent(
   paymentIntentId: string,
-  userId: string
+  idToken: string
 ) {
-  // Validate user is authenticated
-  if (!userId) {
-    throw new Error("User authentication required");
+  const uid = await verifyFirebaseIdToken(idToken);
+  const product = process.env.NEXT_PUBLIC_STRIPE_PRODUCT_NAME;
+
+  if (!paymentIntentId) {
+    throw new Error("Payment intent is required");
   }
 
   try {
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
-    if (paymentIntent.status === "succeeded") {
-      return {
-        id: paymentIntent.id,
-        amount: paymentIntent.amount,
-        created: paymentIntent.created,
-        status: paymentIntent.status,
-        client_secret: paymentIntent.client_secret,
-        currency: paymentIntent.currency,
-        description: paymentIntent.description,
-      };
-    } else {
+    if (paymentIntent.status !== "succeeded") {
       throw new Error("Payment was not successful");
     }
+
+    if (paymentIntent.metadata.userId !== uid) {
+      throw new Error("Payment does not belong to the authenticated user");
+    }
+
+    if (product && paymentIntent.metadata.product !== product) {
+      throw new Error("Payment product does not match this application");
+    }
+
+    if (paymentIntent.currency !== "usd") {
+      throw new Error("Unexpected payment currency");
+    }
+
+    const creditsToAdd = paymentIntent.amount + 1;
+    const db = getAdminDb();
+    const paymentRef = db.doc(`users/${uid}/payments/${paymentIntent.id}`);
+    const profileRef = db.doc(`users/${uid}/profile/userData`);
+    let alreadyProcessed = false;
+
+    await db.runTransaction(async (transaction) => {
+      const existingPayment = await transaction.get(paymentRef);
+
+      if (existingPayment.exists) {
+        alreadyProcessed = true;
+        return;
+      }
+
+      transaction.set(paymentRef, {
+        id: paymentIntent.id,
+        amount: paymentIntent.amount,
+        createdAt: admin.firestore.Timestamp.fromMillis(paymentIntent.created * 1000),
+        status: paymentIntent.status,
+      });
+
+      transaction.set(
+        profileRef,
+        { credits: admin.firestore.FieldValue.increment(creditsToAdd) },
+        { merge: true }
+      );
+    });
+
+    return {
+      id: paymentIntent.id,
+      amount: paymentIntent.amount,
+      created: paymentIntent.created,
+      status: paymentIntent.status,
+      currency: paymentIntent.currency,
+      description: paymentIntent.description,
+      creditsAdded: alreadyProcessed ? 0 : creditsToAdd,
+      alreadyProcessed,
+    };
   } catch {
-    throw new Error("Failed to validate payment intent");
+    throw new Error("Failed to process payment intent");
   }
 }

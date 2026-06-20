@@ -20,6 +20,7 @@ import { UploadIcon } from "lucide-react";
 import { uploadToRagie } from "@/actions/uploadToRagie";
 import { useAuthStore } from "@/zustand/useAuthStore";
 import toast from "react-hot-toast";
+import { getFirebaseIdToken } from "@/firebase/firebaseClient";
 
 interface DocumentData {
   id: string;
@@ -133,7 +134,8 @@ export default function FileManagement() {
     setRagieUploading((prev) => ({ ...prev, [document.id]: true }));
 
     try {
-      const result = await uploadToRagie(document.url, document.name, uid);
+      const idToken = await getFirebaseIdToken();
+      const result = await uploadToRagie(document.url, document.name, idToken);
       if (!result.ok) {
         toast.error(result.error.message);
         return;

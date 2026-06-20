@@ -4,8 +4,6 @@ import {
   getDoc,
   setDoc,
   updateDoc,
-  increment,
-  runTransaction,
 } from "firebase/firestore";
 import { useAuthStore } from "./useAuthStore";
 import { db } from "@/firebase/firebaseClient";
@@ -39,8 +37,6 @@ interface ProfileState {
   profile: ProfileType;
   fetchProfile: () => Promise<void>;
   updateProfile: (newProfile: Partial<ProfileType>) => Promise<void>;
-  useCredits: (amount: number) => Promise<boolean>;
-  addCredits: (amount: number) => Promise<void>;
 }
 
 const mergeProfileWithDefaults = (
@@ -49,7 +45,7 @@ const mergeProfileWithDefaults = (
 ): ProfileType => ({
   ...defaultProfile,
   ...profile,
-  credits: profile.credits !== undefined && profile.credits >= 100 ? profile.credits : 1000,
+  credits: profile.credits !== undefined ? profile.credits : 1000,
   email: authState.authEmail || profile.email || "",
   contactEmail: profile.contactEmail || authState.authEmail || "",
   displayName: profile.displayName || authState.authDisplayName || "",
@@ -105,65 +101,6 @@ const useProfileStore = create<ProfileState>((set, get) => ({
 
       await updateDoc(userRef, updatedProfile);
       set({ profile: updatedProfile });
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  // Use atomic transaction to prevent double-spending
-  useCredits: async (amount: number) => {
-    const uid = useAuthStore.getState().uid;
-    if (!uid) return false;
-
-    try {
-      const userRef = doc(db, `users/${uid}/profile/userData`);
-
-      // Use transaction to ensure atomic read-modify-write
-      const result = await runTransaction(db, async (transaction) => {
-        const docSnap = await transaction.get(userRef);
-        if (!docSnap.exists()) {
-          throw new Error("Profile not found");
-        }
-
-        const currentCredits = docSnap.data().credits ?? 0;
-        if (currentCredits < amount) {
-          return false;
-        }
-
-        transaction.update(userRef, { credits: increment(-amount) });
-        return true;
-      });
-
-      if (result) {
-        // Update local state after successful transaction
-        const profile = get().profile;
-        set({ profile: { ...profile, credits: profile.credits - amount } });
-      }
-
-      return result;
-    } catch {
-      return false;
-    }
-  },
-
-  // Use atomic increment to prevent race conditions
-  addCredits: async (amount: number) => {
-    const uid = useAuthStore.getState().uid;
-    if (!uid) return;
-
-    try {
-      const userRef = doc(db, `users/${uid}/profile/userData`);
-
-      await updateDoc(userRef, { credits: increment(amount) });
-
-      // Re-fetch to get accurate value after increment
-      const docSnap = await getDoc(userRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        set({
-          profile: { ...get().profile, credits: data.credits ?? 0 },
-        });
-      }
     } catch (error) {
       throw error;
     }

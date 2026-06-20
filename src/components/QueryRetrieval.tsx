@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { retrieveChunks } from "@/actions/retrieveChunks";
 import { useAuthStore } from "@/zustand/useAuthStore";
+import { getFirebaseIdToken } from "@/firebase/firebaseClient";
 
 type Chunk = {
   text: string;
@@ -34,7 +35,8 @@ export default function QueryRetrieval() {
     try {
       setIsRetrieving(true);
       setError(null);
-      const data: RetrievalResponse = await retrieveChunks(query, uid);
+      const idToken = await getFirebaseIdToken();
+      const data: RetrievalResponse = await retrieveChunks(query, idToken);
       setRetrievedChunks(data.scored_chunks || []);
     } catch (error) {
       setError(

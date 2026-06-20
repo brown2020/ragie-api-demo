@@ -11,21 +11,28 @@
 
 ## Current State
 
-- Phase: Findings Backlog
-- Task: T-003
-- Status: Findings backlog ready for commit-push checkpoint
-- Last command: npm outdated --json
-- Last result: Reported patch/minor package drift; exit 1 because outdated packages exist
-- Last pushed commit: b8e174b9de437e2d3ced4933af501287c977a001
-- Branch sync: dev matches origin/dev before findings report edits
-- Working tree: Dirty with in-scope findings report updates
-- Next action: Run `npm run lint`, inspect diff, commit and push findings backlog
+- Phase: Execute Fixes and Improvements
+- Task: T-004
+- Status: Security batch ready for commit-push checkpoint
+- Last command: npm run build
+- Last result: Passed
+- Last pushed commit: a508a4297b43f9ce014a1f5c43c71fbba35cd2c9
+- Branch sync: dev matches origin/dev before source edits
+- Working tree: Dirty with in-scope source, rules, docs, and report updates
+- Next action: Inspect diff, commit and push security batch
 
 ## Dirty File Classification
 
 | Path | Classification | Owner/Reason |
 | --- | --- | --- |
-| agent-runs/2026-06-20-codebase-pass/03-findings-backlog.md | Safe-to-commit | Findings backlog report |
+| AGENTS.md | Safe-to-commit | Repo guidance update for new server-side identity/payment boundary |
+| SPEC.md | Safe-to-commit | Current-state spec update for new server-side identity/payment boundary |
+| firestore.rules | In-scope source | F-001/F-004 security rule fix |
+| src/actions/* | In-scope source | F-002/F-003 server action auth/payment fix |
+| src/components/* | In-scope source | Client caller updates for Firebase ID token and server-side payment processing |
+| src/firebase/* | In-scope source | Firebase Admin/client auth-token helpers |
+| src/zustand/* | In-scope source | Remove obsolete client-side credit/payment mutators |
+| agent-runs/2026-06-20-codebase-pass/04-execute-fixes-and-improvements.md | Safe-to-commit | Execution report |
 | agent-runs/2026-06-20-codebase-pass/run-state.md | Safe-to-commit | Workflow ledger update |
 | agent-runs/2026-06-20-codebase-pass/task-queue.md | Safe-to-commit | Task status update |
 
@@ -38,4 +45,4 @@
 - Potential workflow skill clarification for absent `origin/dev` recorded in `skill-improvement-log.md`.
 - `npm ci` reported 18 audit vulnerabilities; defer local audit/package cleanup to the package cleanup phase.
 - No test script is defined in `package.json`; `npm run build` is the closest available type/runtime gate.
-- P1 security findings F-001/F-002/F-003 are queued for the execution phase.
+- Package vulnerabilities remain queued for cleanup.

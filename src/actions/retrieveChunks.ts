@@ -1,17 +1,17 @@
 // app/actions/retrieveChunks.ts
 "use server";
 
+import { verifyFirebaseIdToken } from "@/firebase/firebaseAdmin";
+
 const FETCH_TIMEOUT = 30000; // 30 seconds
 
-export async function retrieveChunks(query: string, userId: string) {
+export async function retrieveChunks(query: string, idToken: string) {
   // Validate inputs
   if (!query?.trim()) {
     throw new Error("Query cannot be empty");
   }
 
-  if (!userId) {
-    throw new Error("User authentication required");
-  }
+  const uid = await verifyFirebaseIdToken(idToken);
 
   const apiKey = process.env.RAGIE_API_KEY;
   if (!apiKey) {
@@ -32,7 +32,7 @@ export async function retrieveChunks(query: string, userId: string) {
         query,
         filter: {
           scope: "tutorial",
-          userId: userId,
+          userId: uid,
         },
       }),
       signal: controller.signal,

@@ -1,13 +1,12 @@
 "use client";
 
 import { useAuthStore } from "@/zustand/useAuthStore";
-import { usePaymentsStore } from "@/zustand/usePaymentsStore";
-import useProfileStore from "@/zustand/useProfileStore";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { validatePaymentIntent } from "@/actions/paymentActions";
+import { processPaymentIntent } from "@/actions/paymentActions";
 import toast from "react-hot-toast";
 import { ClipLoader } from "react-spinners";
+import { getFirebaseIdToken } from "@/firebase/firebaseClient";
 
 type Props = {
   payment_intent: string;
@@ -21,13 +20,9 @@ export default function PaymentSuccessPage({ payment_intent }: Props) {
     amount: number;
     created: number;
     status: string;
+    creditsAdded: number;
   } | null>(null);
 
-  const addPayment = usePaymentsStore((state) => state.addPayment);
-  const checkIfPaymentProcessed = usePaymentsStore(
-    (state) => state.checkIfPaymentProcessed
-  );
-  const addCredits = useProfileStore((state) => state.addCredits);
   const uid = useAuthStore((state) => state.uid);
 
   useEffect(() => {
@@ -45,45 +40,23 @@ export default function PaymentSuccessPage({ payment_intent }: Props) {
 
     const handlePaymentSuccess = async () => {
       try {
-        const data = await validatePaymentIntent(payment_intent, uid);
+        const idToken = await getFirebaseIdToken();
+        const data = await processPaymentIntent(payment_intent, idToken);
 
         if (data.status === "succeeded") {
-          // Check if payment is already processed
-          const existingPayment = await checkIfPaymentProcessed(data.id);
-          if (existingPayment) {
+          if (data.alreadyProcessed) {
             setMessage("Payment has already been processed.");
-            setPaymentData({
-              id: existingPayment.id,
-              amount: existingPayment.amount,
-              created: existingPayment.createdAt?.toMillis() ?? 0,
-              status: existingPayment.status,
-            });
-            setLoading(false);
-            return;
+          } else {
+            toast.success(`${data.creditsAdded.toLocaleString()} credits added!`);
+            setMessage("Payment successful");
           }
 
-          // Add payment to store first
-          await addPayment({
-            id: data.id,
-            amount: data.amount,
-            status: data.status,
-          });
-
-          // Then add credits
-          const creditsToAdd = data.amount + 1;
-          try {
-            await addCredits(creditsToAdd);
-            toast.success(`${creditsToAdd.toLocaleString()} credits added!`);
-          } catch {
-            toast.error("Payment recorded but credits not added. Please contact support.");
-          }
-
-          setMessage("Payment successful");
           setPaymentData({
             id: data.id,
             amount: data.amount,
             created: data.created * 1000,
             status: data.status,
+            creditsAdded: data.creditsAdded,
           });
         } else {
           setMessage("Payment validation failed");
@@ -96,7 +69,7 @@ export default function PaymentSuccessPage({ payment_intent }: Props) {
     };
 
     handlePaymentSuccess();
-  }, [payment_intent, uid, addPayment, checkIfPaymentProcessed, addCredits]);
+  }, [payment_intent, uid]);
 
   return (
     <main className="max-w-2xl mx-auto p-6 md:p-10">
@@ -113,6 +86,11 @@ export default function PaymentSuccessPage({ payment_intent }: Props) {
             <h2 className="text-xl text-gray-600">
               You successfully purchased credits
             </h2>
+            {paymentData.creditsAdded > 0 && (
+              <p className="text-sm text-green-700">
+                {paymentData.creditsAdded.toLocaleString()} credits added
+              </p>
+            )}
             <div className="bg-gray-50 rounded-lg p-4 my-6">
               <div className="text-4xl font-bold text-gray-800">
                 ${(paymentData.amount / 100).toFixed(2)}

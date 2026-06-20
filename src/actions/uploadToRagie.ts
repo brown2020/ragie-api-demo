@@ -1,6 +1,7 @@
 // app/actions/uploadToRagie.ts
 "use server";
 
+import { verifyFirebaseIdToken } from "@/firebase/firebaseAdmin";
 import { ragieErrorResult, type RagieActionResult } from "@/lib/ragie-errors";
 
 const FETCH_TIMEOUT = 30000; // 30 seconds
@@ -8,10 +9,13 @@ const FETCH_TIMEOUT = 30000; // 30 seconds
 export async function uploadToRagie(
   fileUrl: string,
   fileName: string,
-  userId: string
+  idToken: string
 ): Promise<RagieActionResult<unknown>> {
-  // Validate userId is provided
-  if (!userId) {
+  let uid: string;
+
+  try {
+    uid = await verifyFirebaseIdToken(idToken);
+  } catch {
     return {
       ok: false,
       error: {
@@ -71,7 +75,7 @@ export async function uploadToRagie(
       JSON.stringify({
         title: fileName,
         scope: "tutorial",
-        userId: userId,
+        userId: uid,
       })
     );
 

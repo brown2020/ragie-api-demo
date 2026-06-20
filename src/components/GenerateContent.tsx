@@ -5,6 +5,7 @@ import { generateWithChunks } from "@/actions/generateActions";
 import { readStreamableValue } from "@ai-sdk/rsc";
 import { useAuthStore } from "@/zustand/useAuthStore";
 import ReactMarkdown from "react-markdown";
+import { getFirebaseIdToken } from "@/firebase/firebaseClient";
 
 type Chunk = {
   text: string;
@@ -42,7 +43,8 @@ export default function GenerateContent() {
       setGeneratedContent("");
 
       // Step 1: Retrieve chunks from Ragie
-      const data: RetrievalResponse = await retrieveChunks(query, uid);
+      const idToken = await getFirebaseIdToken();
+      const data: RetrievalResponse = await retrieveChunks(query, idToken);
 
       if (!data.scored_chunks || data.scored_chunks.length === 0) {
         setError(

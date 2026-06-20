@@ -10,6 +10,7 @@ import { createPaymentIntent } from "@/actions/paymentActions";
 import { useAuthStore } from "@/zustand/useAuthStore";
 import convertToSubcurrency from "@/lib/convertToSubcurrency";
 import { ClipLoader } from "react-spinners";
+import { getFirebaseIdToken } from "@/firebase/firebaseClient";
 
 type Props = { amount: number };
 
@@ -29,9 +30,10 @@ export default function PaymentCheckoutPage({ amount }: Props) {
       }
 
       try {
+        const idToken = await getFirebaseIdToken();
         const secret = await createPaymentIntent(
           convertToSubcurrency(amount),
-          uid
+          idToken
         );
         if (secret) setClientSecret(secret);
       } catch {

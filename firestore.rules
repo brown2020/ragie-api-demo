@@ -28,9 +28,29 @@ service cloud.firestore {
       match /profile/userData {
         allow read: if isUser(uid);
 
-        // Allow write but validate credits field (must be non-negative)
-        allow write: if isUser(uid)
-          && request.resource.data.credits >= 0;
+        // Allow users to create their profile with starter credits, but do
+        // not allow client-side credit changes after creation.
+        allow create: if isUser(uid)
+          && request.resource.data.keys().hasOnly([
+            'email',
+            'contactEmail',
+            'displayName',
+            'photoUrl',
+            'emailVerified',
+            'credits'
+          ])
+          && request.resource.data.credits == 1000;
+
+        allow update: if isUser(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'email',
+            'contactEmail',
+            'displayName',
+            'photoUrl',
+            'emailVerified'
+          ]);
+
+        allow delete: if false;
       }
 
       // Match the payments subcollection
@@ -38,14 +58,8 @@ service cloud.firestore {
         // Allow read for user's payments
         allow read: if isUser(uid);
 
-        // Allow create but require all necessary fields
-        allow create: if isUser(uid)
-          && request.resource.data.keys().hasAll(['id', 'amount', 'status', 'createdAt'])
-          && request.resource.data.amount > 0
-          && request.resource.data.status is string;
-
-        // Deny updates and deletes to prevent tampering
-        allow update, delete: if false;
+        // Payment records are created by verified server-side processing.
+        allow create, update, delete: if false;
       }
 
       // Match the documents subcollection

@@ -33,3 +33,13 @@ try {
 }
 
 export { db, auth, storage };
+
+export async function getFirebaseIdToken(): Promise<string> {
+  const currentUser = auth.currentUser;
+
+  if (!currentUser) {
+    throw new Error("User authentication required");
+  }
+
+  return currentUser.getIdToken();
+}
