@@ -31,25 +31,29 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   // Check if returning from email link sign-in
   useEffect(() => {
     if (isSignInWithEmailLink(auth, window.location.href)) {
-      let emailFromStorage = window.localStorage.getItem("emailForSignIn");
-      if (!emailFromStorage) {
-        emailFromStorage = window.prompt("Please provide your email for confirmation") || "";
-      }
+      const timeoutId = window.setTimeout(() => {
+        let emailFromStorage = window.localStorage.getItem("emailForSignIn");
+        if (!emailFromStorage) {
+          emailFromStorage = window.prompt("Please provide your email for confirmation") || "";
+        }
 
-      if (emailFromStorage) {
-        setLoading(true);
-        signInWithEmailLink(auth, emailFromStorage, window.location.href)
-          .then(() => {
-            window.localStorage.removeItem("emailForSignIn");
-            toast.success("Successfully signed in!");
-            // Clean up URL
-            window.history.replaceState(null, "", window.location.pathname);
-          })
-          .catch(() => {
-            toast.error("Failed to sign in with email link");
-          })
-          .finally(() => setLoading(false));
-      }
+        if (emailFromStorage) {
+          setLoading(true);
+          signInWithEmailLink(auth, emailFromStorage, window.location.href)
+            .then(() => {
+              window.localStorage.removeItem("emailForSignIn");
+              toast.success("Successfully signed in!");
+              // Clean up URL
+              window.history.replaceState(null, "", window.location.pathname);
+            })
+            .catch(() => {
+              toast.error("Failed to sign in with email link");
+            })
+            .finally(() => setLoading(false));
+        }
+      }, 0);
+
+      return () => window.clearTimeout(timeoutId);
     }
   }, []);
 

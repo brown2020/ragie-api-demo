@@ -26,22 +26,30 @@ export default function PaymentSuccessPage({ payment_intent }: Props) {
   const uid = useAuthStore((state) => state.uid);
 
   useEffect(() => {
-    if (!payment_intent) {
-      setMessage("No payment intent found");
-      setLoading(false);
-      return;
-    }
-
-    if (!uid) {
-      setMessage("Please sign in to view payment status");
-      setLoading(false);
-      return;
-    }
+    let cancelled = false;
 
     const handlePaymentSuccess = async () => {
+      if (!payment_intent) {
+        if (!cancelled) {
+          setMessage("No payment intent found");
+          setLoading(false);
+        }
+        return;
+      }
+
+      if (!uid) {
+        if (!cancelled) {
+          setMessage("Please sign in to view payment status");
+          setLoading(false);
+        }
+        return;
+      }
+
       try {
         const idToken = await getFirebaseIdToken();
         const data = await processPaymentIntent(payment_intent, idToken);
+
+        if (cancelled) return;
 
         if (data.status === "succeeded") {
           if (data.alreadyProcessed) {
@@ -62,13 +70,24 @@ export default function PaymentSuccessPage({ payment_intent }: Props) {
           setMessage("Payment validation failed");
         }
       } catch {
-        setMessage("Error validating payment. Please contact support.");
+        if (!cancelled) {
+          setMessage("Error validating payment. Please contact support.");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
-    handlePaymentSuccess();
+    const timeoutId = window.setTimeout(() => {
+      void handlePaymentSuccess();
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
   }, [payment_intent, uid]);
 
   return (

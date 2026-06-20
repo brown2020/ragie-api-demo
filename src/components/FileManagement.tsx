@@ -161,7 +161,11 @@ export default function FileManagement() {
 
   useEffect(() => {
     if (uid) {
-      loadDocuments();
+      const timeoutId = window.setTimeout(() => {
+        void loadDocuments();
+      }, 0);
+
+      return () => window.clearTimeout(timeoutId);
     }
   }, [uid, loadDocuments]);
 

@@ -11,28 +11,26 @@
 
 ## Current State
 
-- Phase: Execute Fixes and Improvements
-- Task: T-004
-- Status: Security batch ready for commit-push checkpoint
+- Phase: Package and Dead-Code Cleanup
+- Task: T-005
+- Status: Cleanup ready for commit-push checkpoint
 - Last command: npm run build
 - Last result: Passed
-- Last pushed commit: a508a4297b43f9ce014a1f5c43c71fbba35cd2c9
-- Branch sync: dev matches origin/dev before source edits
-- Working tree: Dirty with in-scope source, rules, docs, and report updates
-- Next action: Inspect diff, commit and push security batch
+- Last pushed commit: 71847923e554209d7c752948709ac6220e8ae8ff
+- Branch sync: dev matches origin/dev before cleanup edits
+- Working tree: Dirty with in-scope lockfile, source, README, and report updates
+- Next action: Inspect diff, commit and push cleanup
 
 ## Dirty File Classification
 
 | Path | Classification | Owner/Reason |
 | --- | --- | --- |
-| AGENTS.md | Safe-to-commit | Repo guidance update for new server-side identity/payment boundary |
-| SPEC.md | Safe-to-commit | Current-state spec update for new server-side identity/payment boundary |
-| firestore.rules | In-scope source | F-001/F-004 security rule fix |
-| src/actions/* | In-scope source | F-002/F-003 server action auth/payment fix |
-| src/components/* | In-scope source | Client caller updates for Firebase ID token and server-side payment processing |
-| src/firebase/* | In-scope source | Firebase Admin/client auth-token helpers |
-| src/zustand/* | In-scope source | Remove obsolete client-side credit/payment mutators |
-| agent-runs/2026-06-20-codebase-pass/04-execute-fixes-and-improvements.md | Safe-to-commit | Execution report |
+| README.md | Safe-to-commit | Stale Clerk/package/repo docs fixed |
+| package-lock.json | In-scope source | Safe semver-range dependency update |
+| src/components/AuthModal.tsx | In-scope source | Updated lint-rule effect cleanup |
+| src/components/FileManagement.tsx | In-scope source | Updated lint-rule effect cleanup |
+| src/components/PaymentSuccessPage.tsx | In-scope source | Updated lint-rule effect cleanup |
+| agent-runs/2026-06-20-codebase-pass/05-package-and-dead-code-cleanup.md | Safe-to-commit | Cleanup report |
 | agent-runs/2026-06-20-codebase-pass/run-state.md | Safe-to-commit | Workflow ledger update |
 | agent-runs/2026-06-20-codebase-pass/task-queue.md | Safe-to-commit | Task status update |
 
@@ -46,3 +44,4 @@
 - `npm ci` reported 18 audit vulnerabilities; defer local audit/package cleanup to the package cleanup phase.
 - No test script is defined in `package.json`; `npm run build` is the closest available type/runtime gate.
 - Package vulnerabilities remain queued for cleanup.
+- Audit risk reduced to 10 moderate vulnerabilities; remaining force/major paths are deferred.

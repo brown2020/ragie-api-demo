@@ -35,7 +35,7 @@ This project uses Next.js 16, the Vercel AI SDK, and the Ragie API to build an i
 - **Retrieval of Chunks**: Fetch relevant content chunks using the Ragie API based on user queries.
 - **Content Generation**: Generate responses using various AI models (OpenAI, Google, Anthropic, Mistral, Fireworks) with retrieved information.
 - **Real-Time Streaming**: Stream AI-generated responses to the client in real-time using Vercel AI SDK.
-- **User Authentication**: Secure access to different parts of the app with Clerk middleware.
+- **User Authentication**: Secure access to user-scoped data with Firebase Auth.
 - **Planned Feature**: Enable users to add their own API keys via the client and choose to use their keys or purchase project credits.
 
 ## What is Retrieval-Augmented Generation (RAG)?
@@ -90,15 +90,14 @@ RAG is particularly valuable in applications such as customer support, research,
 
 ## Technologies Used
 
-- **Next.js 16** (`16.1.1`): A powerful React framework optimized for web application development.
-- **React 19** (`19.2.3`): The latest version of the library for web and native user interfaces.
-- **Vercel AI SDK** (`ai@6.0.3`, `@ai-sdk/rsc@2.0.3`, `@ai-sdk/*` providers): A toolkit to enhance AI capabilities in Next.js applications.
+- **Next.js 16**: A powerful React framework optimized for web application development.
+- **React 19**: The latest version of the library for web and native user interfaces.
+- **Vercel AI SDK** (`ai`, `@ai-sdk/rsc`, and provider packages): A toolkit to enhance AI capabilities in Next.js applications.
 - **Ragie API**: An API to retrieve content chunks from datasets for context-aware generation.
-- **Firebase** (`firebase@12.6.0`, `firebase-admin@13.0.1`): For managing file uploads and storing metadata.
+- **Firebase** (`firebase`, `firebase-admin`): For authentication, file uploads, metadata, payment records, and server-side token verification.
 - **TypeScript**: A superset of JavaScript for type-safe code.
 - **Tailwind CSS (v4)**: A utility-first CSS framework for efficient styling.
-- **Clerk** (`@clerk/nextjs@6.0.2`): A platform for user authentication and access control.
-- **Stripe** (`stripe@20.0.0`): For handling payment processing.
+- **Stripe**: For handling payment processing.
 
 ## Getting Started
 
@@ -108,15 +107,14 @@ RAG is particularly valuable in applications such as customer support, research,
 - **npm** (v10 or higher)
 - A **Ragie API Key** (Sign up at [Ragie](https://docs.ragie.ai/docs/tutorial))
 - A **Firebase Project** (See [Firebase Setup](https://firebase.google.com/))
-- A **Clerk Account** (Sign up at [Clerk](https://clerk.dev))
 
 ### Installation
 
 Clone this repository and install the dependencies:
 
 ```bash
-git clone https://github.com/brown2020/ragie-ai-rag-demo.git
-cd ragie-ai-rag-demo
+git clone https://github.com/brown2020/ragie-api-demo.git
+cd ragie-api-demo
 npm install
 ```
 
@@ -125,13 +123,6 @@ npm install
 Create a `.env` file in the root directory and set the following variables:
 
 ```plaintext
-# Clerk Configuration
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_public_key
-CLERK_SECRET_KEY=your_clerk_secret_key
-
-NEXT_PUBLIC_CLERK_SIGN_IN_URL=your_clerk_sign_in_url
-NEXT_PUBLIC_CLERK_SIGN_UP_URL=your_clerk_sign_up_url
-
 # AI Model API Keys
 ANTHROPIC_API_KEY=your_anthropic_api_key
 GOOGLE_GENERATIVE_AI_API_KEY=your_google_generative_ai_api_key
