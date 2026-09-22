@@ -13,7 +13,7 @@ export default function TermsPage() {
           Terms of Service
         </h1>
         <p className="text-sm text-gray-500 mb-8">
-          Last updated: {new Date().toLocaleDateString()}
+          Last updated: September 22, 2026
         </p>
 
         <section className="mb-8">

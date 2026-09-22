@@ -1,12 +1,12 @@
 "use client";
 
-import { auth } from "@/firebase/firebaseClient";
+import { auth, hasClientConfig } from "@/firebase/firebaseClient";
 import { useAuthStore } from "@/zustand/useAuthStore";
 import { useFirebaseAuth } from "./AuthProvider";
 import { signOut } from "firebase/auth";
 import { deleteCookie } from "cookies-next";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AuthModal from "./AuthModal";
 import Image from "next/image";
 import { LogOut, User } from "lucide-react";
@@ -19,13 +19,23 @@ export default function Header() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowUserMenu(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showUserMenu]);
+
   const handleSignOut = async () => {
     try {
-      // Explicitly delete auth cookies before signing out
       deleteCookie("authToken", { path: "/" });
       deleteCookie("__session", { path: "/" });
 
-      await signOut(auth);
+      if (hasClientConfig && auth) {
+        await signOut(auth);
+      }
       setShowUserMenu(false);
     } catch {
       // Sign-out failure is non-critical — Firebase will clear session on next load
@@ -55,10 +65,12 @@ export default function Header() {
                 Profile
               </Link>
 
-              {/* User Menu */}
               <div className="relative">
                 <button
+                  type="button"
                   onClick={() => setShowUserMenu(!showUserMenu)}
+                  aria-expanded={showUserMenu}
+                  aria-haspopup="menu"
                   className="flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-full"
                 >
                   {authPhotoUrl ? (
@@ -70,14 +82,19 @@ export default function Header() {
                       className="rounded-full"
                     />
                   ) : (
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                      {authDisplayName?.charAt(0).toUpperCase() || <User size={16} />}
+                    <div className="w-8 h-8 bg-blue-700 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                      {authDisplayName?.charAt(0).toUpperCase() || (
+                        <User size={16} />
+                      )}
                     </div>
                   )}
                 </button>
 
                 {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                  <div
+                    role="menu"
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
+                  >
                     <div className="px-4 py-2 border-b border-gray-100">
                       <p className="text-sm font-medium text-gray-900 truncate">
                         {authDisplayName || "User"}
@@ -87,6 +104,8 @@ export default function Header() {
                       </p>
                     </div>
                     <button
+                      type="button"
+                      role="menuitem"
                       onClick={handleSignOut}
                       className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
@@ -99,8 +118,9 @@ export default function Header() {
             </div>
           ) : (
             <button
+              type="button"
               onClick={() => setShowAuthModal(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              className="bg-blue-700 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-800 transition-colors"
             >
               Sign In
             </button>
@@ -110,10 +130,11 @@ export default function Header() {
 
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
 
-      {/* Click outside to close user menu */}
       {showUserMenu && (
-        <div
-          className="fixed inset-0 z-40"
+        <button
+          type="button"
+          className="fixed inset-0 z-40 cursor-default bg-transparent"
+          aria-label="Close user menu"
           onClick={() => setShowUserMenu(false)}
         />
       )}

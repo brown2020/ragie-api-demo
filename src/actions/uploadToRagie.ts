@@ -3,6 +3,10 @@
 
 import { verifyFirebaseIdToken } from "@/firebase/firebaseAdmin";
 import { ragieErrorResult, type RagieActionResult } from "@/lib/ragie-errors";
+import {
+  FIXTURE_UPLOAD,
+  ragieFixturesEnabled,
+} from "@/lib/ragie-fixtures";
 
 const FETCH_TIMEOUT = 30000; // 30 seconds
 
@@ -22,6 +26,17 @@ export async function uploadToRagie(
         status: 401,
         code: "UNAUTHORIZED",
         message: "User authentication required.",
+      },
+    };
+  }
+
+  if (ragieFixturesEnabled()) {
+    return {
+      ok: true,
+      data: {
+        ...FIXTURE_UPLOAD,
+        name: fileName,
+        metadata: { ...FIXTURE_UPLOAD.metadata, title: fileName, userId: uid },
       },
     };
   }

@@ -21,7 +21,6 @@ export default function QueryRetrieval() {
   const uid = useAuthStore((state) => state.uid);
 
   const handleQuery = async (): Promise<void> => {
-    // Validate input
     if (!query?.trim()) {
       setError("Please enter a query");
       return;
@@ -38,10 +37,8 @@ export default function QueryRetrieval() {
       const idToken = await getFirebaseIdToken();
       const data: RetrievalResponse = await retrieveChunks(query, idToken);
       setRetrievedChunks(data.scored_chunks || []);
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "An unknown error occurred"
-      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unknown error occurred");
     } finally {
       setIsRetrieving(false);
     }
@@ -54,7 +51,7 @@ export default function QueryRetrieval() {
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === "Enter" && !isRetrieving) {
-      handleQuery();
+      void handleQuery();
     }
   };
 
@@ -64,7 +61,11 @@ export default function QueryRetrieval() {
         Ask a Question to Retrieve Content
       </h1>
       <div className="mb-4">
+        <label htmlFor="retrieve-query" className="block text-sm font-medium text-gray-700 mb-1">
+          Query
+        </label>
         <input
+          id="retrieve-query"
           type="text"
           value={query}
           onChange={handleInputChange}
@@ -74,6 +75,7 @@ export default function QueryRetrieval() {
           disabled={isRetrieving}
         />
         <button
+          type="button"
           onClick={handleQuery}
           className={`btn-primary mt-3 ${isRetrieving ? "btn-loading" : ""}`}
           disabled={isRetrieving || !uid}
@@ -83,7 +85,7 @@ export default function QueryRetrieval() {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm" role="alert">
           {error}
         </div>
       )}
@@ -95,9 +97,9 @@ export default function QueryRetrieval() {
         </p>
       ) : (
         <ul className="mt-4 space-y-2">
-          {retrievedChunks.map((chunk, index) => (
+          {retrievedChunks.map((chunk) => (
             <li
-              key={index}
+              key={`${chunk.score}-${chunk.text.slice(0, 48)}`}
               className="p-3 border rounded-lg shadow-sm bg-gray-50"
             >
               <p className="text-gray-700">{chunk.text}</p>

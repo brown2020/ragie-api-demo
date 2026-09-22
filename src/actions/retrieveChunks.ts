@@ -2,6 +2,10 @@
 "use server";
 
 import { verifyFirebaseIdToken } from "@/firebase/firebaseAdmin";
+import {
+  FIXTURE_CHUNKS,
+  ragieFixturesEnabled,
+} from "@/lib/ragie-fixtures";
 
 const FETCH_TIMEOUT = 30000; // 30 seconds
 
@@ -12,6 +16,15 @@ export async function retrieveChunks(query: string, idToken: string) {
   }
 
   const uid = await verifyFirebaseIdToken(idToken);
+
+  if (ragieFixturesEnabled()) {
+    return {
+      ...FIXTURE_CHUNKS,
+      query,
+      filter: { scope: "tutorial", userId: uid },
+      fixture: true,
+    };
+  }
 
   const apiKey = process.env.RAGIE_API_KEY;
   if (!apiKey) {

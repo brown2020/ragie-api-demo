@@ -45,3 +45,10 @@ Use `npm run lint` as the primary quality gate. Use `npm run build` when source 
 - Keep fixes small and verifiable. Separate correctness fixes, dependency updates, and UI cleanup into separate commits when practical.
 - Prefer existing path aliases (`@/*`) and local barrel exports where already present.
 - Before pushing changes, inspect the diff and run `npm run lint` at minimum.
+
+## CI / secrets
+
+- Gate workflow (`.github/workflows/ci.yml`) is **secret-free**: lint, typecheck, unit tests, and production build must succeed without Actions secrets.
+- Never inline `NEXT_PUBLIC_*` / API keys in workflow YAML — use `${{ secrets.* }}` only if a separate smoke job needs them.
+- Firebase client/admin and Stripe init are deferred/guarded so empty secrets do not red the gate.
+- Set `RAGIE_USE_FIXTURES=true` in CI tests/build to avoid burning paid Ragie credits. Fixtures cannot prove live retrieval quality or metering.

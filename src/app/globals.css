@@ -72,12 +72,12 @@
 
 /* Professional interactive button style */
 .btn-primary {
-  @apply px-6 py-3 bg-blue-600 text-white font-medium rounded-md shadow-sm cursor-pointer;
-  @apply hover:bg-blue-700 hover:shadow-md hover:translate-y-[-2px];
-  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+  @apply px-6 py-3 bg-blue-700 text-white font-medium rounded-md shadow-sm cursor-pointer;
+  @apply hover:bg-blue-800 hover:shadow-md hover:translate-y-[-2px];
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-2;
   @apply transition-all duration-200 ease-in-out;
-  @apply disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-blue-400 disabled:hover:shadow-none disabled:hover:translate-y-0;
-  @apply active:bg-blue-800 active:scale-95;
+  @apply disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-blue-500 disabled:hover:shadow-none disabled:hover:translate-y-0;
+  @apply active:bg-blue-900 active:scale-95;
 }
 
 /* Loading state animation */
@@ -111,6 +111,6 @@
 /* Input focus styling */
 .input-focus {
   @apply border border-gray-300 rounded-md px-3 py-2 w-full;
-  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-blue-500;
   @apply transition-all duration-200 ease-in-out;
 }

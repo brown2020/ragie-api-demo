@@ -1,11 +1,12 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import {
   ref,
   uploadBytesResumable,
   getDownloadURL,
   deleteObject,
+  type UploadTask,
 } from "firebase/storage";
 import {
   collection,
@@ -15,12 +16,16 @@ import {
   doc,
   Timestamp,
 } from "firebase/firestore";
-import { db, storage } from "@/firebase/firebaseClient";
+import {
+  db,
+  storage,
+  hasClientConfig,
+  getFirebaseIdToken,
+} from "@/firebase/firebaseClient";
 import { UploadIcon } from "lucide-react";
 import { uploadToRagie } from "@/actions/uploadToRagie";
 import { useAuthStore } from "@/zustand/useAuthStore";
 import toast from "react-hot-toast";
-import { getFirebaseIdToken } from "@/firebase/firebaseClient";
 
 interface DocumentData {
   id: string;
@@ -28,6 +33,16 @@ interface DocumentData {
   url: string;
   uploadedToRagie: boolean;
   createdAt?: Timestamp;
+  createdAtLabel?: string;
+}
+
+function formatDocDate(createdAt?: Timestamp): string {
+  if (!createdAt) return "Pending";
+  try {
+    return createdAt.toDate().toLocaleDateString("en-US");
+  } catch {
+    return "Pending";
+  }
 }
 
 export default function FileManagement() {
@@ -37,12 +52,24 @@ export default function FileManagement() {
     {}
   );
   const uid = useAuthStore((state) => state.uid);
+  const uploadTaskRef = useRef<UploadTask | null>(null);
+
+  useEffect(() => {
+    return () => {
+      try {
+        uploadTaskRef.current?.cancel();
+      } catch {
+        // already finished
+      }
+      uploadTaskRef.current = null;
+    };
+  }, []);
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       if (acceptedFiles.length === 0) return;
 
-      if (!uid) {
+      if (!uid || !hasClientConfig || !storage || !db) {
         toast.error("Please sign in to upload files");
         return;
       }
@@ -51,54 +78,44 @@ export default function FileManagement() {
       const file = acceptedFiles[0];
       const storageRef = ref(storage, `users/${uid}/documents/${file.name}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
+      uploadTaskRef.current = uploadTask;
 
-      uploadTask.on(
-        "state_changed",
-        () => {
-          // Progress tracking handled by uploading state
-        },
-        async () => {
-          toast.error("Upload failed. Please try again.");
-          setUploading(false);
-        },
-        async () => {
-          try {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+      try {
+        // UploadTask is thenable — await avoids .on() subscription cleanup issues
+        await uploadTask;
+        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+        const createdAt = Timestamp.now();
 
-            const docRef = await addDoc(
-              collection(db, `users/${uid}/documents`),
-              {
-                name: file.name,
-                url: downloadURL,
-                uploadedToRagie: false,
-                createdAt: Timestamp.now(),
-              }
-            );
+        const docRef = await addDoc(collection(db, `users/${uid}/documents`), {
+          name: file.name,
+          url: downloadURL,
+          uploadedToRagie: false,
+          createdAt,
+        });
 
-            setDocuments((prev) => [
-              ...prev,
-              {
-                id: docRef.id,
-                name: file.name,
-                url: downloadURL,
-                uploadedToRagie: false,
-                createdAt: Timestamp.now(),
-              },
-            ]);
-            toast.success("File uploaded successfully");
-          } catch {
-            // Rollback: delete the uploaded file if metadata save fails
-            try {
-              await deleteObject(storageRef);
-            } catch {
-              // Best-effort cleanup
-            }
-            toast.error("Failed to save file. Please try again.");
-          } finally {
-            setUploading(false);
-          }
+        setDocuments((prev) => [
+          ...prev,
+          {
+            id: docRef.id,
+            name: file.name,
+            url: downloadURL,
+            uploadedToRagie: false,
+            createdAt,
+            createdAtLabel: formatDocDate(createdAt),
+          },
+        ]);
+        toast.success("File uploaded successfully");
+      } catch {
+        try {
+          await deleteObject(storageRef);
+        } catch {
+          // Best-effort cleanup when metadata save fails or upload cancelled
         }
-      );
+        toast.error("Upload failed. Please try again.");
+      } finally {
+        setUploading(false);
+        uploadTaskRef.current = null;
+      }
     },
     [uid]
   );
@@ -109,16 +126,20 @@ export default function FileManagement() {
   });
 
   const loadDocuments = useCallback(async () => {
-    if (!uid) return;
+    if (!uid || !hasClientConfig || !db) return;
 
     try {
       const querySnapshot = await getDocs(
         collection(db, `users/${uid}/documents`)
       );
-      const docs = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as DocumentData[];
+      const docs = querySnapshot.docs.map((d) => {
+        const data = d.data() as Omit<DocumentData, "id" | "createdAtLabel">;
+        return {
+          id: d.id,
+          ...data,
+          createdAtLabel: formatDocDate(data.createdAt),
+        };
+      });
       setDocuments(docs);
     } catch {
       toast.error("Failed to load documents");
@@ -141,9 +162,11 @@ export default function FileManagement() {
         return;
       }
 
-      await updateDoc(doc(db, `users/${uid}/documents`, document.id), {
-        uploadedToRagie: true,
-      });
+      if (hasClientConfig && db) {
+        await updateDoc(doc(db, `users/${uid}/documents`, document.id), {
+          uploadedToRagie: true,
+        });
+      }
       setDocuments((prev) =>
         prev.map((d) =>
           d.id === document.id ? { ...d, uploadedToRagie: true } : d
@@ -160,13 +183,12 @@ export default function FileManagement() {
   };
 
   useEffect(() => {
-    if (uid) {
-      const timeoutId = window.setTimeout(() => {
-        void loadDocuments();
-      }, 0);
+    if (!uid) return;
+    const timeoutId = window.setTimeout(() => {
+      void loadDocuments();
+    }, 0);
 
-      return () => window.clearTimeout(timeoutId);
-    }
+    return () => window.clearTimeout(timeoutId);
   }, [uid, loadDocuments]);
 
   return (
@@ -175,7 +197,6 @@ export default function FileManagement() {
         File Management
       </h1>
 
-      {/* Dropzone Area */}
       <div
         {...getRootProps()}
         className={`border-2 border-dashed rounded-lg p-10 flex justify-center items-center cursor-pointer transition duration-200 ${
@@ -194,9 +215,9 @@ export default function FileManagement() {
         )}
       </div>
 
-      {/* Upload Button */}
       <div className="mt-4 text-center">
         <button
+          type="button"
           onClick={open}
           disabled={uploading || !uid}
           className={`btn-primary mt-3 ${uploading ? "btn-loading" : ""}`}
@@ -205,7 +226,6 @@ export default function FileManagement() {
         </button>
       </div>
 
-      {/* Uploaded Documents List */}
       <h2 className="text-xl font-semibold text-gray-800 mt-8">
         Uploaded Documents
       </h2>
@@ -223,19 +243,20 @@ export default function FileManagement() {
                   href={document.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
+                  className="text-blue-700 hover:underline"
                 >
                   {document.name}
                 </a>
                 {document.uploadedToRagie ? (
-                  <span className="text-sm text-green-500">
+                  <span className="text-sm text-green-700">
                     Uploaded to Ragie
                   </span>
                 ) : (
                   <button
+                    type="button"
                     onClick={() => handleUploadToRagie(document)}
                     disabled={ragieUploading[document.id]}
-                    className={`flex items-center space-x-2 text-blue-600 px-3 py-1 rounded border border-blue-600 cursor-pointer hover:bg-blue-50 hover:shadow-sm transition-all duration-200 ${
+                    className={`flex items-center space-x-2 text-blue-700 px-3 py-1 rounded border border-blue-700 cursor-pointer hover:bg-blue-50 hover:shadow-sm transition-all duration-200 ${
                       ragieUploading[document.id]
                         ? "opacity-60 cursor-not-allowed"
                         : ""
@@ -251,8 +272,7 @@ export default function FileManagement() {
                 )}
               </div>
               <span className="text-sm text-gray-500">
-                {document.createdAt?.toDate().toLocaleDateString() ??
-                  new Date().toLocaleDateString()}
+                {document.createdAtLabel ?? "Pending"}
               </span>
             </li>
           ))}

@@ -1,8 +1,7 @@
-import { initializeApp, getApps } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
-import { getStorage } from "firebase/storage";
-
+import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
+import { getFirestore, type Firestore } from "firebase/firestore";
+import { getAuth, type Auth } from "firebase/auth";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_APIKEY,
@@ -14,27 +13,36 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENTID,
 };
 
-// Initialize Firebase
-let app;
-let db: ReturnType<typeof getFirestore>;
-let auth: ReturnType<typeof getAuth>;
-let storage: ReturnType<typeof getStorage>;
+/** True when public Firebase web config is present (false in CI without secrets). */
+export const hasClientConfig = Boolean(firebaseConfig.apiKey?.trim());
 
-try {
-  app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+let app: FirebaseApp | undefined;
+let db: Firestore;
+let auth: Auth;
+let storage: FirebaseStorage;
+
+if (hasClientConfig) {
+  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   db = getFirestore(app);
   auth = getAuth(app);
   storage = getStorage(app);
-} catch {
-  // Provide fallback stubs so imports don't crash at build time
-  db = {} as ReturnType<typeof getFirestore>;
-  auth = {} as ReturnType<typeof getAuth>;
-  storage = {} as ReturnType<typeof getStorage>;
+} else {
+  // CI gate / SSG without Actions secrets: skip module-level init so
+  // prerender does not throw auth/invalid-api-key.
+  console.warn(
+    "Firebase client config missing (NEXT_PUBLIC_FIREBASE_APIKEY); deferring init"
+  );
+  db = null as unknown as Firestore;
+  auth = null as unknown as Auth;
+  storage = null as unknown as FirebaseStorage;
 }
 
-export { db, auth, storage };
+export { auth, db, storage };
 
 export async function getFirebaseIdToken(): Promise<string> {
+  if (!hasClientConfig || !auth) {
+    throw new Error("Firebase client is not configured");
+  }
   const currentUser = auth.currentUser;
 
   if (!currentUser) {

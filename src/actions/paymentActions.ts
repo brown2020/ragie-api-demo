@@ -4,7 +4,13 @@
 import { getAdminDb, verifyFirebaseIdToken, admin } from "@/firebase/firebaseAdmin";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+function getStripe(): Stripe {
+  const key = process.env.STRIPE_SECRET_KEY?.trim();
+  if (!key) {
+    throw new Error("STRIPE_SECRET_KEY is not configured");
+  }
+  return new Stripe(key);
+}
 
 export async function createPaymentIntent(amount: number, idToken: string) {
   const uid = await verifyFirebaseIdToken(idToken);
@@ -18,6 +24,7 @@ export async function createPaymentIntent(amount: number, idToken: string) {
   try {
     if (!product) throw new Error("Stripe product name is not defined");
 
+    const stripe = getStripe();
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: "usd",
@@ -43,6 +50,7 @@ export async function processPaymentIntent(
   }
 
   try {
+    const stripe = getStripe();
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
     if (paymentIntent.status !== "succeeded") {

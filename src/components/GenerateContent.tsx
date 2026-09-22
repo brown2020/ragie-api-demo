@@ -25,7 +25,6 @@ export default function GenerateContent() {
   const uid = useAuthStore((state) => state.uid);
 
   const handleAsk = async (): Promise<void> => {
-    // Validate input
     if (!query?.trim()) {
       setError("Please enter a question");
       return;
@@ -42,7 +41,6 @@ export default function GenerateContent() {
       setStatus("Retrieving...");
       setGeneratedContent("");
 
-      // Step 1: Retrieve chunks from Ragie
       const idToken = await getFirebaseIdToken();
       const data: RetrievalResponse = await retrieveChunks(query, idToken);
 
@@ -53,7 +51,6 @@ export default function GenerateContent() {
         return;
       }
 
-      // Step 2: Generate content using the retrieved chunks
       setStatus("Generating...");
 
       const result = await generateWithChunks(
@@ -62,16 +59,13 @@ export default function GenerateContent() {
         "gpt-4o"
       );
 
-      // Stream the response
       for await (const content of readStreamableValue(result)) {
         if (content) {
           setGeneratedContent(content.trim());
         }
       }
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "An unknown error occurred"
-      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unknown error occurred");
     } finally {
       setIsGenerating(false);
       setStatus("");
@@ -85,7 +79,7 @@ export default function GenerateContent() {
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === "Enter" && !isGenerating) {
-      handleAsk();
+      void handleAsk();
     }
   };
 
@@ -95,7 +89,11 @@ export default function GenerateContent() {
         Ask a Question of the Documents
       </h1>
       <div className="mb-4">
+        <label htmlFor="generate-query" className="block text-sm font-medium text-gray-700 mb-1">
+          Question
+        </label>
         <input
+          id="generate-query"
           type="text"
           value={query}
           onChange={handleInputChange}
@@ -105,6 +103,7 @@ export default function GenerateContent() {
           disabled={isGenerating}
         />
         <button
+          type="button"
           onClick={handleAsk}
           className={`btn-primary mt-3 ${isGenerating ? "btn-loading" : ""}`}
           disabled={isGenerating || !uid}
@@ -114,7 +113,7 @@ export default function GenerateContent() {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm" role="alert">
           {error}
         </div>
       )}

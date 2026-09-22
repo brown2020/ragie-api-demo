@@ -13,7 +13,6 @@ export default function ProfileComponent() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Profile Header */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
@@ -40,13 +39,12 @@ export default function ProfileComponent() {
         </div>
       </div>
 
-      {/* Credits Card */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Credits</h3>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-3xl font-bold text-gray-800">
-              {Math.round(profile.credits).toLocaleString()}
+              {Math.round(profile.credits).toLocaleString("en-US")}
             </p>
             <p className="text-sm text-gray-500">Available credits</p>
           </div>
@@ -56,23 +54,22 @@ export default function ProfileComponent() {
         </div>
       </div>
 
-      {/* Account Info */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
           Account Information
         </h3>
-        <div className="space-y-4">
+        <dl className="space-y-4">
           <div>
-            <label className="text-sm text-gray-500">Email</label>
-            <p className="text-gray-800">{profile.email || authEmail}</p>
+            <dt className="text-sm text-gray-500">Email</dt>
+            <dd className="text-gray-800">{profile.email || authEmail}</dd>
           </div>
           <div>
-            <label className="text-sm text-gray-500">Display Name</label>
-            <p className="text-gray-800">
+            <dt className="text-sm text-gray-500">Display Name</dt>
+            <dd className="text-gray-800">
               {profile.displayName || authDisplayName || "Not set"}
-            </p>
+            </dd>
           </div>
-        </div>
+        </dl>
       </div>
     </div>
   );

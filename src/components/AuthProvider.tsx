@@ -1,14 +1,18 @@
 "use client";
 
-import { auth } from "@/firebase/firebaseClient";
+import { auth, hasClientConfig } from "@/firebase/firebaseClient";
 import { useAuthStore } from "@/zustand/useAuthStore";
 import useProfileStore from "@/zustand/useProfileStore";
-import {
-  onAuthStateChanged,
-  User,
-} from "firebase/auth";
+import { onAuthStateChanged, type User } from "firebase/auth";
 import { serverTimestamp, Timestamp } from "firebase/firestore";
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 interface AuthContextType {
   user: User | null;
@@ -28,17 +32,22 @@ interface AuthProviderProps {
 
 export default function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  // When Firebase public config is absent (CI/SSG), auth is immediately ready as signed-out.
+  const [loading, setLoading] = useState(() => Boolean(hasClientConfig && auth));
   const setAuthDetails = useAuthStore((state) => state.setAuthDetails);
   const clearAuthDetails = useAuthStore((state) => state.clearAuthDetails);
   const fetchProfile = useProfileStore((state) => state.fetchProfile);
 
   useEffect(() => {
+    if (!hasClientConfig || !auth) {
+      clearAuthDetails();
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
 
       if (firebaseUser) {
-        // User is signed in
         setAuthDetails({
           uid: firebaseUser.uid,
           firebaseUid: firebaseUser.uid,
@@ -51,10 +60,8 @@ export default function AuthProvider({ children }: AuthProviderProps) {
           lastSignIn: serverTimestamp() as Timestamp,
         });
 
-        // Fetch user profile after auth is set
         await fetchProfile();
       } else {
-        // User is signed out
         clearAuthDetails();
       }
 
@@ -64,9 +71,9 @@ export default function AuthProvider({ children }: AuthProviderProps) {
     return () => unsubscribe();
   }, [setAuthDetails, clearAuthDetails, fetchProfile]);
 
+  const value = useMemo(() => ({ user, loading }), [user, loading]);
+
   return (
-    <AuthContext.Provider value={{ user, loading }}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
   );
 }

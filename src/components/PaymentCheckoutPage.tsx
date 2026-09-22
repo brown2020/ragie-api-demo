@@ -23,9 +23,13 @@ export default function PaymentCheckoutPage({ amount }: Props) {
   const uid = useAuthStore((state) => state.uid);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function initializePayment() {
       if (!uid) {
-        setErrorMessage("Please sign in to make a payment");
+        if (!cancelled) {
+          setErrorMessage("Please sign in to make a payment");
+        }
         return;
       }
 
@@ -35,13 +39,18 @@ export default function PaymentCheckoutPage({ amount }: Props) {
           convertToSubcurrency(amount),
           idToken
         );
-        if (secret) setClientSecret(secret);
+        if (!cancelled && secret) setClientSecret(secret);
       } catch {
-        setErrorMessage("Failed to initialize payment. Please try again.");
+        if (!cancelled) {
+          setErrorMessage("Failed to initialize payment. Please try again.");
+        }
       }
     }
 
-    initializePayment();
+    void initializePayment();
+    return () => {
+      cancelled = true;
+    };
   }, [amount, uid]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -58,7 +67,6 @@ export default function PaymentCheckoutPage({ amount }: Props) {
       const { error: submitError } = await elements.submit();
       if (submitError) {
         setErrorMessage(submitError.message || "Payment failed");
-        setLoading(false);
         return;
       }
 
@@ -75,9 +83,9 @@ export default function PaymentCheckoutPage({ amount }: Props) {
       }
     } catch {
       setErrorMessage("Payment validation failed. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   if (!uid) {
@@ -91,7 +99,7 @@ export default function PaymentCheckoutPage({ amount }: Props) {
   if (!clientSecret || !stripe || !elements) {
     return (
       <div className="flex items-center justify-center max-w-6xl h-36 mx-auto w-full">
-        <ClipLoader color="#2563eb" size={36} />
+        <ClipLoader color="#1d4ed8" size={36} />
       </div>
     );
   }
@@ -108,12 +116,13 @@ export default function PaymentCheckoutPage({ amount }: Props) {
         {clientSecret && <PaymentElement />}
 
         {errorMessage && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm" role="alert">
             {errorMessage}
           </div>
         )}
 
         <button
+          type="submit"
           disabled={!stripe || loading}
           className="btn-primary w-full mt-4 py-4 text-lg"
         >
