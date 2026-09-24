@@ -1,116 +1,73 @@
-# Ragie AI Retrieval-Augmented Generation (RAG) with Next.js 16
+# RAG Demo (ragie-api-demo)
 
-Welcome to the **Ragie AI RAG Demo** — a Next.js 16 application that uses the Vercel AI SDK (`ai` v6) with Server Actions to implement Retrieval-Augmented Generation (RAG) using the Ragie API. This project demonstrates an effective way to leverage AI for context-aware content generation by retrieving and generating information based on user queries.
+A Next.js demo that walks users through a **retrieval-augmented generation (RAG)** workflow: sign in, upload documents, index them with [Ragie](https://www.ragie.ai/), retrieve relevant chunks for a query, and stream an AI answer grounded in that context. Credits for generation are purchased via Stripe.
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [What is Retrieval-Augmented Generation (RAG)?](#what-is-retrieval-augmented-generation-rag)
-- [About Ragie](#about-ragie)
-- [Technologies Used](#technologies-used)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Environment Variables](#environment-variables)
-- [Usage](#usage)
-  - [File Management](#file-management)
-  - [Retrieving Chunks](#retrieving-chunks)
-  - [Retrieving and Generating Content](#retrieving-and-generating-content)
-- [Streaming Responses](#streaming-responses)
-  - [Server Action for Streaming](#server-action-for-streaming)
-  - [Client-Side Handling of Streaming Responses](#client-side-handling-of-streaming-responses)
-- [Upcoming Features](#upcoming-features)
-- [Deployment](#deployment)
-- [License](#license)
-- [Contact](#contact)
-
-## Overview
-
-This project uses Next.js 16, the Vercel AI SDK, and the Ragie API to build an interactive web application that utilizes Retrieval-Augmented Generation (RAG). The application enables users to upload documents, retrieve content chunks from them, and generate AI responses based on those chunks in real-time.
+**Live demo:** [https://ragdemo-three.vercel.app](https://ragdemo-three.vercel.app)
 
 ## Features
 
-- **File Management**: Upload documents to Firebase Storage and manage them in Firestore.
-- **Retrieval of Chunks**: Fetch relevant content chunks using the Ragie API based on user queries.
-- **Content Generation**: Generate responses using various AI models (OpenAI, Google, Anthropic, Mistral, Fireworks) with retrieved information.
-- **Real-Time Streaming**: Stream AI-generated responses to the client in real-time using Vercel AI SDK.
-- **User Authentication**: Secure access to user-scoped data with Firebase Auth.
-- **Planned Feature**: Enable users to add their own API keys via the client and choose to use their keys or purchase project credits.
+- **Firebase Auth** — email/password, Google sign-in, and email-link sign-in
+- **Document management** — upload files to Firebase Storage, track metadata in Firestore, delete or send documents to Ragie
+- **Ragie integration** — upload documents with user-scoped metadata; retrieve scored chunks filtered by the authenticated user
+- **Multi-model generation** — stream answers with OpenAI (`gpt-4o`), Google (`gemini-1.5-pro`), Mistral (`mistral-large`), Anthropic (`claude-3-5-sonnet`), or Fireworks (`llama-v3p1-405b`) via the Vercel AI SDK
+- **Credits & Stripe checkout** — buy credits; payment intents are verified server-side against the Firebase UID
+- **Profile** — view and edit user profile data stored under `users/{uid}`
+- **Fixture mode** — set `RAGIE_USE_FIXTURES=true` to short-circuit Ragie calls for CI / local demos without spending API credits
 
-## What is Retrieval-Augmented Generation (RAG)?
+## Tech stack
 
-**Retrieval-Augmented Generation (RAG)** is an advanced AI technique that enhances the generation of content by combining information retrieval with natural language generation.
+| Layer | Choice |
+| --- | --- |
+| Framework | Next.js `^16.3.6` (App Router) |
+| UI | React `^19.2.5`, Tailwind CSS `^4.2.4`, Lucide icons |
+| Language | TypeScript `^5.9.3` |
+| Auth / data | Firebase `^12` (Auth, Firestore, Storage) + Firebase Admin `^13` |
+| RAG | Ragie HTTP API |
+| AI | Vercel AI SDK (`ai` `^6`, `@ai-sdk/*`, `@ai-sdk/rsc`) |
+| Payments | Stripe (`stripe` `^22`, `@stripe/react-stripe-js`) |
+| State | Zustand `^5` |
+| Tests | Vitest `^5` |
+| Lint | ESLint `^10` + `eslint-config-next` |
 
-### How RAG Works
+## Project structure
 
-1. **Retrieval**: When a user asks a question, relevant chunks of information are fetched from a dataset using a retrieval API (like Ragie) to provide context.
-2. **Generation**: An AI model generates a response using the retrieved information. The generated content is thus more accurate and contextually relevant to the user’s query.
+```
+src/
+  app/                 # App Router pages (home, dashboard, profile, payments, about/privacy/terms)
+  actions/             # Server Actions: Ragie upload/retrieve, AI generate, Stripe payments
+  components/          # UI: auth, dashboard panels, payments, layout chrome
+  firebase/            # Client + Admin Firebase init
+  lib/                 # Helpers, Ragie fixtures, auth error mapping
+  zustand/             # Auth, profile, and payments stores
+firestore.rules        # User-scoped Firestore rules
+storage.rules          # User-scoped Storage rules
+.env.example           # Env var names (no secrets)
+.github/workflows/ci.yml
+```
 
-### Why RAG is Important
+Key routes:
 
-- **Enhanced Relevance**: By grounding AI responses in actual, relevant data, RAG significantly improves the relevance and accuracy of generated content.
-- **Scalability**: RAG can handle a broad range of queries by dynamically retrieving only the necessary information, which reduces the need for fine-tuning large models on specific datasets.
-- **Real-Time Interaction**: Streaming responses allow for real-time interaction, providing immediate feedback to the user.
+| Path | Purpose |
+| --- | --- |
+| `/` | Landing / signed-in home |
+| `/dashboard` | File management, query retrieval, content generation |
+| `/profile` | User profile |
+| `/payment-attempt` | Stripe checkout |
+| `/payment-success` | Post-payment confirmation |
+| `/about`, `/privacy`, `/terms` | Static info pages |
 
-RAG is particularly valuable in applications such as customer support, research, content creation, and anywhere precise and relevant information needs to be generated dynamically.
-
-## About Ragie
-
-**Ragie** is a powerful API platform that provides secure retrieval-augmented generation capabilities for developers. With Ragie, you can efficiently retrieve and generate relevant content based on user queries by integrating various documents and metadata.
-
-### Key Concepts
-
-1. **Documents**:
-
-   - Files are imported into Ragie as documents. Their contents are processed to extract semantic information, enabling efficient retrieval.
-   - Ragie supports various file types, including structured and unstructured data. Even images within documents are processed to extract their semantic data.
-   - Documents can include optional metadata, which can be used later to filter retrieval results. The file associated with a document can be updated, replacing the previous version in future retrieval results.
-
-2. **Metadata**:
-
-   - An arbitrary object that is stored with a document and can be used to pre-filter retrieval results. This is useful for various use cases, such as implementing permissions, categorization, and search optimization.
-
-3. **Retrieval**:
-
-   - A natural language query can be made using Ragie’s retrieval API, optionally including a metadata filter. This returns a list of relevant content chunks that are suitable for providing context to a large language model (LLM). Ragie supports various options that allow users to trade-off between retrieval speed and quality.
-
-4. **Connectors**:
-
-   - Ragie offers out-of-the-box connectors to simplify document ingestion from commonly used services such as Google Drive, Notion, Confluence, Salesforce, Jira, and Onedrive. Changes made in the connected service are synchronized with Ragie automatically.
-
-5. **SDKs**:
-   - Ragie provides SDKs in popular programming languages such as TypeScript and Python, offering a smoother developer experience by abstracting direct HTTP calls.
-
-### How Ragie Works
-
-- **Data Loading**: Data is loaded into Ragie by posting files to the `/documents` endpoint. Metadata can be attached to documents to support flexible filtering at retrieval and generation time.
-- **Retrieval**: Once documents are in Ragie, you can semantically search them using the `/retrievals` endpoint. The API allows options like `rerank` to improve retrieval quality.
-- **Generation**: Using the chunks retrieved, Ragie can provide relevant context to language models, which can then generate accurate responses based on the data provided.
-
-## Technologies Used
-
-- **Next.js 16**: A powerful React framework optimized for web application development.
-- **React 19**: The latest version of the library for web and native user interfaces.
-- **Vercel AI SDK** (`ai`, `@ai-sdk/rsc`, and provider packages): A toolkit to enhance AI capabilities in Next.js applications.
-- **Ragie API**: An API to retrieve content chunks from datasets for context-aware generation.
-- **Firebase** (`firebase`, `firebase-admin`): For authentication, file uploads, metadata, payment records, and server-side token verification.
-- **TypeScript**: A superset of JavaScript for type-safe code.
-- **Tailwind CSS (v4)**: A utility-first CSS framework for efficient styling.
-- **Stripe**: For handling payment processing.
-
-## Getting Started
+## Getting started
 
 ### Prerequisites
 
-- **Node.js** (v20 or higher recommended)
-- **npm** (v10 or higher)
-- A **Ragie API Key** (Sign up at [Ragie](https://docs.ragie.ai/docs/tutorial))
-- A **Firebase Project** (See [Firebase Setup](https://firebase.google.com/))
+- Node.js 22+ (CI uses Node 22)
+- npm
+- Firebase project (Auth, Firestore, Storage)
+- Ragie API key
+- At least one AI provider API key
+- Stripe account (for payments)
 
-### Installation
-
-Clone this repository and install the dependencies:
+### Clone and install
 
 ```bash
 git clone https://github.com/brown2020/ragie-api-demo.git
@@ -118,154 +75,101 @@ cd ragie-api-demo
 npm install
 ```
 
-### Environment Variables
+### Environment variables
 
-Create a `.env` file in the root directory and set the following variables:
+Copy `.env.example` to `.env.local` and fill in values. **Never commit real keys.**
 
-```plaintext
-# AI Model API Keys
-ANTHROPIC_API_KEY=your_anthropic_api_key
-GOOGLE_GENERATIVE_AI_API_KEY=your_google_generative_ai_api_key
-MISTRAL_API_KEY=your_mistral_api_key
-OPENAI_API_KEY=your_openai_api_key
-FIREWORKS_API_KEY=your_fireworks_api_key
+| Variable | Purpose | Where to get it |
+| --- | --- | --- |
+| `RAGIE_API_KEY` | Ragie API authentication | [Ragie dashboard](https://www.ragie.ai/) |
+| `RAGIE_USE_FIXTURES` | `true` to use fixture Ragie responses (CI/local) | Set locally / in CI |
+| `OPENAI_API_KEY` | OpenAI models via AI SDK | [OpenAI](https://platform.openai.com/) |
+| `ANTHROPIC_API_KEY` | Anthropic models via AI SDK | [Anthropic](https://console.anthropic.com/) |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Google Gemini via AI SDK | [Google AI Studio](https://aistudio.google.com/) |
+| `MISTRAL_API_KEY` | Mistral models via AI SDK | [Mistral](https://console.mistral.ai/) |
+| `FIREWORKS_API_KEY` | Fireworks / Llama via AI SDK | [Fireworks](https://fireworks.ai/) |
+| `NEXT_PUBLIC_STRIPE_KEY` | Stripe publishable key | Stripe Dashboard → API keys |
+| `STRIPE_SECRET_KEY` | Stripe secret key (server) | Stripe Dashboard → API keys |
+| `NEXT_PUBLIC_STRIPE_PRODUCT_NAME` | Product label used in payment intents | Your choice / Stripe product name |
+| `NEXT_PUBLIC_FIREBASE_APIKEY` | Firebase web client config | Firebase Console → Project settings |
+| `NEXT_PUBLIC_FIREBASE_AUTHDOMAIN` | Firebase Auth domain | Firebase Console |
+| `NEXT_PUBLIC_FIREBASE_PROJECTID` | Firebase project id | Firebase Console |
+| `NEXT_PUBLIC_FIREBASE_STORAGEBUCKET` | Firebase Storage bucket | Firebase Console |
+| `NEXT_PUBLIC_FIREBASE_MESSAGINGSENDERID` | Firebase messaging sender id | Firebase Console |
+| `NEXT_PUBLIC_FIREBASE_APPID` | Firebase web app id | Firebase Console |
+| `NEXT_PUBLIC_FIREBASE_MEASUREMENTID` | Optional Analytics measurement id | Firebase Console |
+| `FIREBASE_TYPE` | Service account type (`service_account`) | Firebase service account JSON |
+| `FIREBASE_PROJECT_ID` | Admin SDK project id | Service account JSON |
+| `FIREBASE_PRIVATE_KEY_ID` | Admin SDK private key id | Service account JSON |
+| `FIREBASE_PRIVATE_KEY` | Admin SDK private key (PEM, newlines escaped) | Service account JSON |
+| `FIREBASE_CLIENT_EMAIL` | Admin SDK client email | Service account JSON |
+| `FIREBASE_CLIENT_ID` | Admin SDK client id | Service account JSON |
+| `FIREBASE_AUTH_URI` | Usually `https://accounts.google.com/o/oauth2/auth` | Service account JSON |
+| `FIREBASE_TOKEN_URI` | Usually `https://oauth2.googleapis.com/token` | Service account JSON |
+| `FIREBASE_AUTH_PROVIDER_X509_CERT_URL` | Google certs URL | Service account JSON |
+| `FIREBASE_CLIENT_CERTS_URL` | Client cert URL | Service account JSON |
+| `FIREBASE_UNIVERSE_DOMAIN` | Usually `googleapis.com` | Service account JSON |
 
-# Stripe Configuration
-NEXT_PUBLIC_STRIPE_PRODUCT_NAME=your_stripe_product_name
-NEXT_PUBLIC_STRIPE_KEY=your_stripe_public_key
-STRIPE_SECRET_KEY=your_stripe_secret_key
+> Note: `.env.example` may still list Clerk variables; this app uses **Firebase Auth only** and does not depend on Clerk.
 
-# Firebase Configuration
-NEXT_PUBLIC_FIREBASE_APIKEY=your_firebase_api_key
-NEXT_PUBLIC_FIREBASE_AUTHDOMAIN=your_firebase_auth_domain
-NEXT_PUBLIC_FIREBASE_PROJECTID=your_firebase_project_id
-NEXT_PUBLIC_FIREBASE_STORAGEBUCKET=your_firebase_storage_bucket
-NEXT_PUBLIC_FIREBASE_MESSAGINGSENDERID=your_firebase_messaging_sender_id
-NEXT_PUBLIC_FIREBASE_APPID=your_firebase_app_id
-NEXT_PUBLIC_FIREBASE_MEASUREMENTID=your_firebase_measurement_id
+### Firebase setup
 
-# Firebase Server Config
-FIREBASE_TYPE=service_account
-FIREBASE_PROJECT_ID=your_firebase_project_id
-FIREBASE_PRIVATE_KEY_ID=your_firebase_private_key_id
-FIREBASE_PRIVATE_KEY=your_firebase_private_key
-FIREBASE_CLIENT_EMAIL=your_firebase_client_email
-FIREBASE_CLIENT_ID=your_firebase_client_id
-FIREBASE_AUTH_URI=https://accounts.google.com/o/oauth2/auth
-FIREBASE_TOKEN_URI=https://oauth2.googleapis.com/token
-FIREBASE_AUTH_PROVIDER_X509_CERT_URL=https://www.googleapis.com/oauth2/v1/certs
-FIREBASE_CLIENT_CERTS_URL=your_firebase_client_certs_url
-FIREBASE_UNIVERSE_DOMAIN=googleapis.com
+1. Create a Firebase project and enable **Email/Password**, **Google**, and (optionally) **Email link** sign-in.
+2. Create a web app and copy the client config into the `NEXT_PUBLIC_FIREBASE_*` vars.
+3. Generate a service account key and map its fields to the `FIREBASE_*` Admin vars (escape newlines in `FIREBASE_PRIVATE_KEY`).
+4. Deploy or paste `firestore.rules` and `storage.rules` so users can only access `users/{uid}/...` data and storage paths.
 
-# Ragie API Key
-RAGIE_API_KEY=your_ragie_api_key
+### Run locally
+
+```bash
+npm run dev
 ```
 
-### Firebase Security Rules
+Open [http://localhost:3000](http://localhost:3000).
 
-This project uses Firebase for database and storage. To ensure your data is secure and users can only access their own information, you need to set up the appropriate security rules in your Firebase Console.
+For CI-style runs without Ragie credits:
 
-We have included the rules files in the project root:
-
-1.  **Firestore Rules (`firestore.rules`)**:
-    -   Copy the contents of `firestore.rules`.
-    -   Go to **Firebase Console > Firestore Database > Rules**.
-    -   Paste the rules and click **Publish**.
-
-2.  **Storage Rules (`storage.rules`)**:
-    -   Copy the contents of `storage.rules`.
-    -   Go to **Firebase Console > Storage > Rules**.
-    -   Paste the rules and click **Publish**.
-
-## Usage
-
-### File Management
-
-1. **Upload Documents**:
-
-   - Go to the \*\*File Management\*\* page and upload documents to Firebase Storage. The metadata for each document will be stored in Firestore.
-
-2. **Manage Documents**:
-   - View the list of uploaded documents, and upload them to Ragie for retrieval-augmented generation.
-
-### Retrieving Chunks
-
-1. **Enter Query**:
-   - On the **Query Retrieval** page, enter a question or query.
-2. **Retrieve Chunks**:
-   - The application uses Ragie to retrieve relevant content chunks from the uploaded documents. The retrieved chunks are displayed on the page.
-
-### Retrieving and Generating Content
-
-1. **Ask a Question**:
-   - On the **Generate Content** page, enter a question.
-2. **Retrieve and Generate**:
-   - The application first retrieves relevant chunks using Ragie and then generates a response based on these chunks using an AI model. The response is streamed to the client in real-time.
-
-## Streaming Responses
-
-### Server Action for Streaming
-
-The `generateWithChunks` function in `src/actions/generateActions.ts` demonstrates how to use the Vercel AI SDK (`ai`) to handle streamed responses using `streamText` and `createStreamableValue`.
-
-```typescript
-import { createStreamableValue } from "@ai-sdk/rsc";
-import { streamText } from "ai";
-
-// ... (model selection logic)
-
-async function generateResponse(systemPrompt: string, userPrompt: string, modelName: string) {
-  const model = await getModel(modelName);
-  
-  const result = streamText({
-    model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-  });
-
-  const stream = createStreamableValue(result.textStream);
-  return stream.value;
-}
+```bash
+RAGIE_USE_FIXTURES=true npm test
+RAGIE_USE_FIXTURES=true npm run build
 ```
 
-### Client-Side Handling of Streaming Responses
+## Scripts
 
-```typescript
-const result = await generateWithChunks(
-  data.scored_chunks.map((chunk) => chunk.text),
-  query,
-  "gpt-4o"
-);
+| Script | Description |
+| --- | --- |
+| `npm run dev` | Start Next.js dev server |
+| `npm run build` | Production build |
+| `npm start` | Serve production build |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm test` | Vitest (unit tests) |
+| `npm run doctor` | `react-doctor` offline check |
 
-// Correctly stream the response to handle progressive updates
-for await (const content of readStreamableValue(result)) {
-  if (content) {
-    setGeneratedContent((prevContent) => prevContent + content.trim());
-  }
-}
-```
+## Testing and CI
 
-## Upcoming Features
+GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to `dev` / `main` and on pull requests:
 
-- **Client-Side API Key Management**: Allow users to input their own API keys in the client and choose whether to use their own keys or purchase project credits.
-- **Dynamic API Key Selection**: Users can toggle between using their API keys or the project's keys.
+1. `npm ci --ignore-scripts`
+2. `npm run lint`
+3. `npm run typecheck`
+4. `npm test` with `RAGIE_USE_FIXTURES=true`
+5. `npm run build` with `RAGIE_USE_FIXTURES=true`
+
+Client Firebase/Stripe/Ragie keys are optional for this gate; Admin/client init soft-fails when unset so the quality gate can pass without secrets.
 
 ## Deployment
 
-Deploy the application on Vercel:
+Typical target is **Vercel** (see live demo URL). Configure the same environment variables in the Vercel project settings. Deploy Firestore and Storage rules from this repo to your Firebase project before enabling production traffic.
 
-1. Install the Vercel CLI: `npm i -g vercel`.
-2. Run `vercel` and follow the prompts to deploy.
+`next.config.mjs` allows remote images from `firebasestorage.googleapis.com` and `lh3.googleusercontent.com` (Google profile photos).
+
+## Contributing
+
+1. Work on the `dev` branch.
+2. Keep changes focused; run `npm run lint`, `npm run typecheck`, and `npm test` before pushing.
+3. Do not commit `.env.local` or any real secrets.
 
 ## License
 
-This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See [`LICENSE.md`](LICENSE.md) for details.
-
-## Contact
-
-For more information, feel free to contact:
-
-- **GitHub**: [brown2020](https://github.com/brown2020)
-- **Email**: [info@ignitechannel.com](mailto:info@ignitechannel.com)
+[GNU Affero General Public License v3.0](LICENSE.md) (AGPL-3.0).
