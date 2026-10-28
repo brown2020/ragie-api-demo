@@ -1,8 +1,11 @@
-import admin from "firebase-admin";
-import { getApps } from "firebase-admin/app";
+import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
+import { getStorage } from "firebase-admin/storage";
 import type { Firestore } from "firebase-admin/firestore";
 import type { Auth } from "firebase-admin/auth";
 import type { Bucket } from "@google-cloud/storage";
+import type { ServiceAccount } from "firebase-admin/app";
 
 let adminBucket: Bucket;
 let adminDb: Firestore;
@@ -28,16 +31,16 @@ try {
       clientX509CertUrl: process.env.FIREBASE_CLIENT_CERTS_URL,
     };
 
-    admin.initializeApp({
-      credential: admin.credential.cert(adminCredentials as admin.ServiceAccount),
+    initializeApp({
+      credential: cert(adminCredentials as ServiceAccount),
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGEBUCKET,
     });
   }
 
   if (getApps().length) {
-    adminBucket = admin.storage().bucket();
-    adminDb = admin.firestore();
-    adminAuth = admin.auth();
+    adminBucket = getStorage().bucket();
+    adminDb = getFirestore();
+    adminAuth = getAuth();
   } else {
     adminBucket = {} as Bucket;
     adminDb = {} as Firestore;
@@ -49,7 +52,7 @@ try {
   adminAuth = {} as Auth;
 }
 
-export { adminBucket, adminDb, adminAuth, admin };
+export { adminBucket, adminDb, adminAuth };
 
 export async function verifyFirebaseIdToken(idToken: string): Promise<string> {
   if (!idToken) {

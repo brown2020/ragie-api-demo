@@ -1,7 +1,8 @@
 // paymentActions.ts
 "use server";
 
-import { getAdminDb, verifyFirebaseIdToken, admin } from "@/firebase/firebaseAdmin";
+import { getAdminDb, verifyFirebaseIdToken } from "@/firebase/firebaseAdmin";
+import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import Stripe from "stripe";
 
 function getStripe(): Stripe {
@@ -86,13 +87,13 @@ export async function processPaymentIntent(
       transaction.set(paymentRef, {
         id: paymentIntent.id,
         amount: paymentIntent.amount,
-        createdAt: admin.firestore.Timestamp.fromMillis(paymentIntent.created * 1000),
+        createdAt: Timestamp.fromMillis(paymentIntent.created * 1000),
         status: paymentIntent.status,
       });
 
       transaction.set(
         profileRef,
-        { credits: admin.firestore.FieldValue.increment(creditsToAdd) },
+        { credits: FieldValue.increment(creditsToAdd) },
         { merge: true }
       );
     });
