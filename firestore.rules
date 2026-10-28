@@ -1,47 +1,150 @@
 rules_version = '2';
 
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// users/{uid}
+//   firebaseUid, authEmail, authDisplayName, authPhotoUrl: strings
+//   authEmailVerified, authReady, authPending, isInvited: bool
+//   lastSignIn: timestamp
+//   isAdmin, isAllowed, premium, credits: server-owned; clients cannot set them
+//
+// users/{uid}/profile/userData
+//   email, contactEmail, displayName, photoUrl: strings (length-capped)
+//   emailVerified: bool
+//   credits: int, 1000 on create, unchanged by clients
+//
+// users/{uid}/payments/{paymentId}
+//   server-owned payment records
+//
+// users/{uid}/documents/{documentId}
+//   name, url, storagePath: strings
+//   uploadedToRagie: bool
+//   createdAt: timestamp (optional)
+//
+// ===============================================================
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user is authenticated and matches the requested UID
     function isUser(uid) {
       return request.auth != null && request.auth.uid == uid;
     }
 
-    // Helper function to check if a field is being modified
-    function fieldChanged(field) {
-      return request.resource.data[field] != resource.data[field];
+    function isShortString(value, maxLen) {
+      return value is string && value.size() <= maxLen;
     }
 
-    // Match the users collection
+    function userWritableKeys() {
+      return [
+        'firebaseUid',
+        'authEmail',
+        'authDisplayName',
+        'authPhotoUrl',
+        'authEmailVerified',
+        'authReady',
+        'authPending',
+        'isInvited',
+        'lastSignIn'
+      ];
+    }
+
+    function isValidUserRecord(data) {
+      return isShortString(data.firebaseUid, 128)
+        && isShortString(data.authEmail, 320)
+        && isShortString(data.authDisplayName, 200)
+        && isShortString(data.authPhotoUrl, 2000)
+        && data.authEmailVerified is bool
+        && data.authReady is bool
+        && data.authPending is bool
+        && data.isInvited is bool
+        && data.lastSignIn is timestamp;
+    }
+
+    function privilegedUnchanged() {
+      return request.resource.data.get('isAdmin', null) == resource.data.get('isAdmin', null)
+        && request.resource.data.get('isAllowed', null) == resource.data.get('isAllowed', null)
+        && request.resource.data.get('premium', null) == resource.data.get('premium', null)
+        && request.resource.data.get('credits', null) == resource.data.get('credits', null);
+    }
+
+    function isValidProfile(data) {
+      return data.keys().hasOnly([
+          'email',
+          'contactEmail',
+          'displayName',
+          'photoUrl',
+          'emailVerified',
+          'credits'
+        ])
+        && isShortString(data.email, 320)
+        && isShortString(data.contactEmail, 320)
+        && isShortString(data.displayName, 200)
+        && isShortString(data.photoUrl, 2000)
+        && data.emailVerified is bool
+        && data.credits is int
+        && data.credits >= 0;
+    }
+
+    function isValidStoragePath(path, userId) {
+      return path is string
+        && path.size() > 0
+        && path.size() <= 1024
+        && path.split('/').size() == 4
+        && path.split('/')[0] == 'users'
+        && path.split('/')[1] == userId
+        && path.split('/')[2] == 'documents'
+        && path.split('/')[3].size() > 0
+        && path.split('/')[3] != '.'
+        && path.split('/')[3] != '..';
+    }
+
+    function isValidDocument(data, userId, requirePath) {
+      return isShortString(data.name, 255)
+        && data.name.size() > 0
+        && isShortString(data.url, 4096)
+        && data.url.matches('^https://firebasestorage\\.googleapis\\.com/.*')
+        && data.uploadedToRagie is bool
+        && data.keys().hasOnly([
+          'name',
+          'url',
+          'uploadedToRagie',
+          'storagePath',
+          'createdAt'
+        ])
+        && (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp)
+        && (
+          (!requirePath && !data.keys().hasAny(['storagePath']))
+          || isValidStoragePath(data.storagePath, userId)
+        );
+    }
+
     match /users/{uid} {
-      // Allow users to read their own user document
       allow read: if isUser(uid);
 
-      // Allow write but protect sensitive fields from client modification
-      allow write: if isUser(uid)
-        && (!request.resource.data.keys().hasAny(['isAdmin']) || request.resource.data.isAdmin == resource.data.isAdmin)
-        && (!request.resource.data.keys().hasAny(['isAllowed']) || request.resource.data.isAllowed == resource.data.isAllowed)
-        && (!request.resource.data.keys().hasAny(['premium']) || request.resource.data.premium == resource.data.premium);
+      allow create: if isUser(uid)
+        && request.resource.data.keys().hasOnly(userWritableKeys())
+        && !request.resource.data.keys().hasAny(['isAdmin', 'isAllowed', 'premium', 'credits'])
+        && isValidUserRecord(request.resource.data);
 
-      // Match the profile subcollection
+      allow update: if isUser(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(userWritableKeys())
+        && isValidUserRecord(request.resource.data)
+        && privilegedUnchanged();
+
+      allow delete: if false;
+
       match /profile/userData {
         allow read: if isUser(uid);
 
-        // Allow users to create their profile with starter credits, but do
-        // not allow client-side credit changes after creation.
         allow create: if isUser(uid)
-          && request.resource.data.keys().hasOnly([
-            'email',
-            'contactEmail',
-            'displayName',
-            'photoUrl',
-            'emailVerified',
-            'credits'
-          ])
+          && isValidProfile(request.resource.data)
           && request.resource.data.credits == 1000;
 
         allow update: if isUser(uid)
+          && isValidProfile(request.resource.data)
+          && request.resource.data.credits == resource.data.credits
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'email',
             'contactEmail',
@@ -53,36 +156,29 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      // Match the payments subcollection
       match /payments/{paymentId} {
-        // Allow read for user's payments
         allow read: if isUser(uid);
-
-        // Payment records are created by verified server-side processing.
         allow create, update, delete: if false;
       }
 
-      // Match the documents subcollection
       match /documents/{documentId} {
         allow read: if isUser(uid);
 
-        // Allow create with required fields
         allow create: if isUser(uid)
-          && request.resource.data.keys().hasAll(['name', 'url', 'uploadedToRagie'])
-          && request.resource.data.name is string
-          && request.resource.data.url is string;
+          && request.resource.data.keys().hasAll(['name', 'url', 'uploadedToRagie', 'storagePath'])
+          && isValidDocument(request.resource.data, uid, true);
 
-        // Allow updates only for uploadedToRagie field
         allow update: if isUser(uid)
+          && isValidDocument(request.resource.data, uid, false)
           && request.resource.data.name == resource.data.name
-          && request.resource.data.url == resource.data.url;
+          && request.resource.data.url == resource.data.url
+          && request.resource.data.get('storagePath', null) == resource.data.get('storagePath', null)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uploadedToRagie']);
 
-        // Allow delete
         allow delete: if isUser(uid);
       }
     }
 
-    // Deny access to all other collections by default
     match /{document=**} {
       allow read, write: if false;
     }

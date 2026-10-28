@@ -3,45 +3,41 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Helper function to check if the user is authenticated and matches the requested UID
     function isUser(uid) {
       return request.auth != null && request.auth.uid == uid;
     }
 
-    // Maximum file size: 100MB
+    // Keep in sync with src/lib/storageAccess.ts ALLOWED_DOCUMENT_TYPES.
     function isValidFileSize() {
-      return request.resource.size < 100 * 1024 * 1024;
+      return request.resource.size > 0
+        && request.resource.size <= 32 * 1024 * 1024;
     }
 
-    // Allowed file types for documents
-    function isValidDocumentType() {
-      return request.resource.contentType.matches('application/pdf')
-        || request.resource.contentType.matches('text/.*')
-        || request.resource.contentType.matches('application/msword')
-        || request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.*')
-        || request.resource.contentType.matches('image/.*');
+    function isAllowedContentType() {
+      return request.resource.contentType.matches('^application/pdf($|;)')
+        || request.resource.contentType.matches('^text/plain($|;)')
+        || request.resource.contentType.matches('^text/markdown($|;)')
+        || request.resource.contentType.matches('^text/csv($|;)')
+        || request.resource.contentType.matches('^application/msword($|;)')
+        || request.resource.contentType.matches('^application/vnd\\.openxmlformats-officedocument\\.wordprocessingml\\.document($|;)')
+        || request.resource.contentType.matches('^application/vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet($|;)')
+        || request.resource.contentType.matches('^application/vnd\\.openxmlformats-officedocument\\.presentationml\\.presentation($|;)');
     }
 
-    // Match user-specific documents
     match /users/{uid}/documents/{fileName} {
-      // Allow read for authenticated user's own documents
       allow read: if isUser(uid);
 
-      // Allow write with size and type validation
-      allow write: if isUser(uid)
+      allow create, update: if isUser(uid)
         && isValidFileSize()
-        && isValidDocumentType();
+        && isAllowedContentType();
 
-      // Allow delete
       allow delete: if isUser(uid);
     }
 
-    // Legacy or global documents path - deny access
     match /documents/{fileName} {
       allow read, write: if false;
     }
 
-    // Default deny for all other paths
     match /{allPaths=**} {
       allow read, write: if false;
     }
