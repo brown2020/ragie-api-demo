@@ -1,73 +1,78 @@
 # RAG Demo (ragie-api-demo)
 
-A Next.js demo that walks users through a **retrieval-augmented generation (RAG)** workflow: sign in, upload documents, index them with [Ragie](https://www.ragie.ai/), retrieve relevant chunks for a query, and stream an AI answer grounded in that context. Credits for generation are purchased via Stripe.
+A Next.js demo of a user-scoped **retrieval-augmented generation (RAG)** workflow: sign in with Firebase, upload documents, index them with [Ragie](https://www.ragie.ai/), retrieve scored chunks for a query, and stream an AI answer grounded in that context. Credits are purchased through Stripe.
 
 **Live demo:** [https://ragdemo-three.vercel.app](https://ragdemo-three.vercel.app)
 
 ## Features
 
-- **Firebase Auth** — email/password, Google sign-in, and email-link sign-in
-- **Document management** — upload files to Firebase Storage, track metadata in Firestore, delete or send documents to Ragie
-- **Ragie integration** — upload documents with user-scoped metadata; retrieve scored chunks filtered by the authenticated user
-- **Multi-model generation** — stream answers with OpenAI (`gpt-4o`), Google (`gemini-1.5-pro`), Mistral (`mistral-large`), Anthropic (`claude-3-5-sonnet`), or Fireworks (`llama-v3p1-405b`) via the Vercel AI SDK
-- **Credits & Stripe checkout** — buy a fixed pack of 10,000 credits for $99.99. Upload costs 5 credits, retrieval costs 1, and generation costs 10. Payment intents are verified server-side against the Firebase UID. A signed `payment_intent.succeeded` webhook at `/api/stripe/webhook` grants the same credits when `STRIPE_WEBHOOK_SECRET` is set; without that secret the webhook returns 503 and the success page still fulfills the payment idempotently.
-- **Profile** — view and edit user profile data stored under `users/{uid}`
-- **Fixture mode** — set `RAGIE_USE_FIXTURES=true` to short-circuit Ragie calls for CI / local demos without spending API credits
+- **Firebase Auth** — email/password, Google sign-in, and email-link sign-in. Server actions verify a Firebase ID token and derive the UID server-side.
+- **Document management** — upload PDF, plain text, Markdown, CSV, DOC, DOCX, XLSX, or PPTX files (32 MB max) to Firebase Storage under a unique `users/{uid}/documents/{uuid}-{name}` path, and track metadata in Firestore. There is no user-facing delete control; a failed metadata write deletes the Storage object as cleanup.
+- **Ragie integration** — the server reads the user's Storage object with the Admin SDK (it does not fetch a caller-supplied URL), uploads it to Ragie with user-scoped metadata, and retrieves chunks filtered to that user.
+- **Generation** — the dashboard streams answers with OpenAI `gpt-4o` through the Vercel AI SDK. The server action can also call Google `gemini-1.5-pro`, Mistral `mistral-large`, Anthropic `claude-3-5-sonnet`, or Fireworks `llama-v3p1-405b` when those model ids are passed. The dashboard does not expose a model picker.
+- **Credits and Stripe** — new profiles start with 1,000 credits. A catalog pack is 10,000 credits for $99.99. Upload costs 5, retrieval costs 1, and generation costs 10; the debit is refunded if the provider call throws. Intents are created and fulfilled server-side against the Firebase UID. `POST /api/stripe/webhook` accepts a signed `payment_intent.succeeded` event when `STRIPE_WEBHOOK_SECRET` is set; without that secret the route returns 503 and the success page still fulfills the payment idempotently.
+- **Profile** — view auth details, credit balance, and payment history. The page does not edit profile fields.
+- **Fixture mode** — `RAGIE_USE_FIXTURES=true` short-circuits live Ragie calls for CI and local builds. It does not prove live retrieval quality.
+- **Baseline headers** — CSP, `X-Frame-Options`, `nosniff`, Referrer-Policy, and Permissions-Policy on every route. HSTS is sent only when `NODE_ENV=production`.
 
 ## Tech stack
 
 | Layer | Choice |
 | --- | --- |
-| Framework | Next.js `^16.3.6` (App Router) |
-| UI | React `^19.2.5`, Tailwind CSS `^4.2.4`, Lucide icons |
-| Language | TypeScript `^5.9.3` |
-| Auth / data | Firebase `^12` (Auth, Firestore, Storage) + Firebase Admin `^13` |
+| Framework | Next.js `^16.4.3` (App Router) |
+| UI | React `^19.3.1`, Tailwind CSS `^4.3.3`, Lucide `1.63.0` |
+| Language | TypeScript `^6.0.3` |
+| Auth / data | Firebase `^13.1.0` (Auth, Firestore, Storage) + Firebase Admin `^14.5.0` |
 | RAG | Ragie HTTP API |
-| AI | Vercel AI SDK (`ai` `^6`, `@ai-sdk/*`, `@ai-sdk/rsc`) |
-| Payments | Stripe (`stripe` `^22`, `@stripe/react-stripe-js`) |
-| State | Zustand `^5` |
-| Tests | Vitest `^5` |
-| Lint | ESLint `^10` + `eslint-config-next` |
+| AI | Vercel AI SDK (`ai` `^7.0.156`, `@ai-sdk/*`, `@ai-sdk/rsc` `^3.0.156`) |
+| Payments | Stripe `^23.0.1`, `@stripe/react-stripe-js` `^7.0.1` |
+| State | Zustand `^5.0.16` |
+| Validation | Zod `^4.6.7` |
+| Tests | Vitest `^5.0.5` |
+| Lint | ESLint `^10.13.0` + `eslint-config-next` `^16.4.3` |
+
+`firebase-admin` 14 pulls in `jwks-rsa` 4, which loads `jose` with `require()`. `package.json` overrides `jwks-rsa`'s `jose` to `5.10.0` because `jose` 6 is ESM-only. Leave that override in place.
 
 ## Project structure
 
 ```
 src/
-  app/                 # App Router pages (home, dashboard, profile, payments, about/privacy/terms)
-  actions/             # Server Actions: Ragie upload/retrieve, AI generate, Stripe payments
-  components/          # UI: auth, dashboard panels, payments, layout chrome
-  firebase/            # Client + Admin Firebase init
-  lib/                 # Helpers, Ragie fixtures, auth error mapping
+  app/                 # App Router pages and the Stripe webhook route
+  actions/             # Server actions: Ragie upload/retrieve, AI generate, Stripe
+  components/          # Auth, dashboard, profile, payments, layout
+  firebase/            # Client and Admin Firebase init
+  lib/                 # Billing, credits, rate limits, storage checks, fixtures
   zustand/             # Auth, profile, and payments stores
-firestore.rules        # User-scoped Firestore rules
-storage.rules          # User-scoped Storage rules
-.env.example           # Env var names (no secrets)
+firestore.rules        # User-scoped Firestore rules (deploy separately)
+storage.rules          # User-scoped Storage rules (deploy separately)
+.env.example           # Env var names and placeholders (no real secrets)
+spec.md                # Current-state specification
+roadmap.md             # Next steps, known limits, open issues
 .github/workflows/ci.yml
 ```
-
-Key routes:
 
 | Path | Purpose |
 | --- | --- |
 | `/` | Landing / signed-in home |
-| `/dashboard` | File management, query retrieval, content generation |
-| `/profile` | User profile |
-| `/payment-attempt` | Stripe checkout |
-| `/payment-success` | Post-payment confirmation |
-| `/about`, `/privacy`, `/terms` | Static info pages |
+| `/dashboard` | Upload, send to Ragie, retrieve chunks, generate |
+| `/profile` | View profile, credits, and payments |
+| `/payment-attempt` | Stripe checkout for the catalog pack |
+| `/payment-success` | Confirm payment and fulfill credits |
+| `/api/stripe/webhook` | Signed `payment_intent.succeeded` handler |
+| `/about`, `/privacy`, `/terms` | Static pages |
 
 ## Getting started
 
 ### Prerequisites
 
-- Node.js 22+ (CI uses Node 22)
+- Node.js 22 (CI and local verification use Node 22). The Firebase client packages declare a higher `engines` range; install may warn, and the app still builds on Node 22.
 - npm
-- Firebase project (Auth, Firestore, Storage)
-- Ragie API key
-- At least one AI provider API key
-- Stripe account (for payments)
+- A Firebase project with Auth, Firestore, and Storage
+- A Ragie API key
+- An OpenAI API key for the dashboard flow (other provider keys only if those models are called)
+- A Stripe account for checkout
 
-### Clone and install
+### Install
 
 ```bash
 git clone https://github.com/brown2020/ragie-api-demo.git
@@ -77,59 +82,59 @@ npm install
 
 ### Environment variables
 
-Copy `.env.example` to `.env.local` and fill in values. **Never commit real keys.**
+Copy `.env.example` to `.env.local` and fill in your own values. Never commit real keys. Names only:
 
-| Variable | Purpose | Where to get it |
+| Variable | Required for | Purpose |
 | --- | --- | --- |
-| `RAGIE_API_KEY` | Ragie API authentication | [Ragie dashboard](https://www.ragie.ai/) |
-| `RAGIE_USE_FIXTURES` | `true` to use fixture Ragie responses (CI/local) | Set locally / in CI |
-| `OPENAI_API_KEY` | OpenAI models via AI SDK | [OpenAI](https://platform.openai.com/) |
-| `ANTHROPIC_API_KEY` | Anthropic models via AI SDK | [Anthropic](https://console.anthropic.com/) |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | Google Gemini via AI SDK | [Google AI Studio](https://aistudio.google.com/) |
-| `MISTRAL_API_KEY` | Mistral models via AI SDK | [Mistral](https://console.mistral.ai/) |
-| `FIREWORKS_API_KEY` | Fireworks / Llama via AI SDK | [Fireworks](https://fireworks.ai/) |
-| `NEXT_PUBLIC_STRIPE_KEY` | Stripe publishable key | Stripe Dashboard → API keys |
-| `STRIPE_SECRET_KEY` | Stripe secret key (server) | Stripe Dashboard → API keys |
-| `STRIPE_WEBHOOK_SECRET` | Optional signing secret for `POST /api/stripe/webhook`. If unset, checkout still works and the webhook route returns 503 | Stripe Dashboard → Developers → Webhooks → signing secret |
-| `NEXT_PUBLIC_STRIPE_PRODUCT_NAME` | Product label stored on payment intents and checked before credits are granted | Your choice / Stripe product name |
-| `NEXT_PUBLIC_FIREBASE_APIKEY` | Firebase web client config | Firebase Console → Project settings |
-| `NEXT_PUBLIC_FIREBASE_AUTHDOMAIN` | Firebase Auth domain | Firebase Console |
-| `NEXT_PUBLIC_FIREBASE_PROJECTID` | Firebase project id | Firebase Console |
-| `NEXT_PUBLIC_FIREBASE_STORAGEBUCKET` | Firebase Storage bucket | Firebase Console |
-| `NEXT_PUBLIC_FIREBASE_MESSAGINGSENDERID` | Firebase messaging sender id | Firebase Console |
-| `NEXT_PUBLIC_FIREBASE_APPID` | Firebase web app id | Firebase Console |
-| `NEXT_PUBLIC_FIREBASE_MEASUREMENTID` | Optional Analytics measurement id | Firebase Console |
-| `FIREBASE_TYPE` | Service account type (`service_account`) | Firebase service account JSON |
-| `FIREBASE_PROJECT_ID` | Admin SDK project id | Service account JSON |
-| `FIREBASE_PRIVATE_KEY_ID` | Admin SDK private key id | Service account JSON |
-| `FIREBASE_PRIVATE_KEY` | Admin SDK private key (PEM, newlines escaped) | Service account JSON |
-| `FIREBASE_CLIENT_EMAIL` | Admin SDK client email | Service account JSON |
-| `FIREBASE_CLIENT_ID` | Admin SDK client id | Service account JSON |
-| `FIREBASE_AUTH_URI` | Usually `https://accounts.google.com/o/oauth2/auth` | Service account JSON |
-| `FIREBASE_TOKEN_URI` | Usually `https://oauth2.googleapis.com/token` | Service account JSON |
-| `FIREBASE_AUTH_PROVIDER_X509_CERT_URL` | Google certs URL | Service account JSON |
-| `FIREBASE_CLIENT_CERTS_URL` | Client cert URL | Service account JSON |
-| `FIREBASE_UNIVERSE_DOMAIN` | Usually `googleapis.com` | Service account JSON |
+| `RAGIE_API_KEY` | Live indexing and retrieval | Ragie API authentication |
+| `RAGIE_USE_FIXTURES` | CI / local without Ragie | Set to `true` to skip live Ragie calls |
+| `OPENAI_API_KEY` | Dashboard generation | OpenAI `gpt-4o` |
+| `ANTHROPIC_API_KEY` | Only if that model is called | Anthropic |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Only if that model is called | Google Gemini |
+| `MISTRAL_API_KEY` | Only if that model is called | Mistral |
+| `FIREWORKS_API_KEY` | Only if that model is called | Fireworks |
+| `NEXT_PUBLIC_STRIPE_KEY` | Checkout UI | Stripe publishable key |
+| `STRIPE_SECRET_KEY` | Creating and fulfilling payments | Stripe secret key (server) |
+| `STRIPE_WEBHOOK_SECRET` | Optional | Webhook signing secret. Unset: route returns 503 |
+| `NEXT_PUBLIC_STRIPE_PRODUCT_NAME` | Fulfillment | Product label checked before credits are granted |
+| `NEXT_PUBLIC_FIREBASE_APIKEY` | Client auth | Firebase web config |
+| `NEXT_PUBLIC_FIREBASE_AUTHDOMAIN` | Client auth | Firebase Auth domain |
+| `NEXT_PUBLIC_FIREBASE_PROJECTID` | Client auth | Firebase project id |
+| `NEXT_PUBLIC_FIREBASE_STORAGEBUCKET` | Uploads | Storage bucket name |
+| `NEXT_PUBLIC_FIREBASE_MESSAGINGSENDERID` | Client auth | Messaging sender id |
+| `NEXT_PUBLIC_FIREBASE_APPID` | Client auth | Web app id |
+| `NEXT_PUBLIC_FIREBASE_MEASUREMENTID` | Optional | Analytics measurement id |
+| `FIREBASE_PROJECT_ID` | Admin SDK | Service account project id |
+| `FIREBASE_CLIENT_EMAIL` | Admin SDK | Service account client email |
+| `FIREBASE_PRIVATE_KEY` | Admin SDK | Service account private key |
+| `FIREBASE_TYPE` | Admin SDK | Service account type |
+| `FIREBASE_PRIVATE_KEY_ID` | Admin SDK | Service account key id |
+| `FIREBASE_CLIENT_ID` | Admin SDK | Service account client id |
+| `FIREBASE_AUTH_URI` | Admin SDK | OAuth auth URI |
+| `FIREBASE_TOKEN_URI` | Admin SDK | OAuth token URI |
+| `FIREBASE_AUTH_PROVIDER_X509_CERT_URL` | Admin SDK | Google certs URL |
+| `FIREBASE_CLIENT_CERTS_URL` | Admin SDK | Client cert URL |
+| `FIREBASE_UNIVERSE_DOMAIN` | Admin SDK | Google API universe domain |
 
-> Note: `.env.example` may still list Clerk variables; this app uses **Firebase Auth only** and does not depend on Clerk.
+Admin init runs only when `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY` are set, so lint, typecheck, tests, and the production build succeed with those variables empty.
 
-### Firebase setup
+This app uses Firebase Auth. It does not read Clerk variables.
 
-1. Create a Firebase project and enable **Email/Password**, **Google**, and (optionally) **Email link** sign-in.
-2. Create a web app and copy the client config into the `NEXT_PUBLIC_FIREBASE_*` vars.
-3. Generate a service account key and map its fields to the `FIREBASE_*` Admin vars (escape newlines in `FIREBASE_PRIVATE_KEY`).
-4. Deploy `firestore.rules` and `storage.rules` from this repo (this app does not deploy them for you). No composite index file is required; payment history sorts on the automatic single-field `createdAt` index.
-5. Optional: in Stripe, add an endpoint for `payment_intent.succeeded` at `https://<your-host>/api/stripe/webhook` and set `STRIPE_WEBHOOK_SECRET`. Leave it unset to keep webhook delivery disabled.
+### Firebase and Stripe setup
 
-### Run locally
+1. Enable Email/Password, Google, and optionally Email link sign-in.
+2. Copy the web app config into the `NEXT_PUBLIC_FIREBASE_*` names.
+3. Map a service account into the `FIREBASE_*` names.
+4. Deploy `firestore.rules` and `storage.rules` yourself. This repository does not deploy them. No composite index file is required; payment history sorts on the automatic `createdAt` index.
+5. Optionally add a Stripe endpoint for `payment_intent.succeeded` at `/api/stripe/webhook` and set `STRIPE_WEBHOOK_SECRET`.
+
+### Run
 
 ```bash
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
-
-For CI-style runs without Ragie credits:
 
 ```bash
 RAGIE_USE_FIXTURES=true npm test
@@ -140,17 +145,17 @@ RAGIE_USE_FIXTURES=true npm run build
 
 | Script | Description |
 | --- | --- |
-| `npm run dev` | Start Next.js dev server |
+| `npm run dev` | Next.js dev server |
 | `npm run build` | Production build |
-| `npm start` | Serve production build |
+| `npm start` | Serve the production build |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm test` | Vitest (unit tests) |
+| `npm test` | Vitest |
 | `npm run doctor` | `react-doctor` offline check |
 
 ## Testing and CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to `dev` / `main` and on pull requests:
+`.github/workflows/ci.yml` runs on pushes to `dev` and `main`, and on pull requests, with Node 22 and no secrets:
 
 1. `npm ci --ignore-scripts`
 2. `npm run lint`
@@ -158,19 +163,11 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to `dev` / `main` and
 4. `npm test` with `RAGIE_USE_FIXTURES=true`
 5. `npm run build` with `RAGIE_USE_FIXTURES=true`
 
-Client Firebase/Stripe/Ragie keys are optional for this gate; Admin/client init soft-fails when unset so the quality gate can pass without secrets.
-
 ## Deployment
 
-Typical target is **Vercel** (see live demo URL). Configure the same environment variables in the Vercel project settings. Deploy Firestore and Storage rules from this repo to your Firebase project before enabling production traffic.
+The usual host is Vercel. Set the environment variable names above in the host's project settings. Deploy the Firestore and Storage rules to Firebase before production traffic. `next.config.mjs` allows Next.js images from `firebasestorage.googleapis.com` and `lh3.googleusercontent.com` only.
 
-`next.config.mjs` allows remote images from `firebasestorage.googleapis.com` and `lh3.googleusercontent.com` (Google profile photos).
-
-## Contributing
-
-1. Work on the `dev` branch.
-2. Keep changes focused; run `npm run lint`, `npm run typecheck`, and `npm test` before pushing.
-3. Do not commit `.env.local` or any real secrets.
+Work lands on `dev`. Promotion to `main` is a separate QA step. Do not commit `.env.local` or real secrets.
 
 ## License
 
