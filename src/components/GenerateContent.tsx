@@ -56,7 +56,8 @@ export default function GenerateContent() {
       const result = await generateWithChunks(
         data.scored_chunks.map((chunk) => chunk.text),
         query,
-        "gpt-4o"
+        "gpt-4o",
+        idToken
       );
 
       for await (const content of readStreamableValue(result)) {

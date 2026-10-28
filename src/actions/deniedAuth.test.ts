@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { generateWithChunks } from "./generateActions";
 import { uploadToRagie } from "./uploadToRagie";
 import { retrieveChunks } from "./retrieveChunks";
 
@@ -24,5 +25,23 @@ describe("denied mutation (auth boundary)", () => {
     await expect(retrieveChunks("what is rag?", "")).rejects.toThrow(
       /authentication required/i
     );
+  });
+
+  it("generateWithChunks rejects empty idToken before calling a model", async () => {
+    await expect(
+      generateWithChunks(["chunk"], "what is rag?", "gpt-4o", "")
+    ).rejects.toThrow(/authentication required/i);
+  });
+
+  it("uploadToRagie does not fetch a caller-supplied URL before auth", async () => {
+    const result = await uploadToRagie(
+      "http://127.0.0.1:1/latest/meta-data",
+      "file.txt",
+      ""
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.status).toBe(401);
+    }
   });
 });

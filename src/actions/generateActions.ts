@@ -6,13 +6,46 @@ import { createOpenAI, openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
 import { mistral } from "@ai-sdk/mistral";
 import { anthropic } from "@ai-sdk/anthropic";
+import { verifyFirebaseIdToken } from "@/firebase/firebaseAdmin";
+import { CREDIT_COSTS } from "@/lib/billing";
+import { withCredits } from "@/lib/credits";
+import { assertChunks, assertQuery } from "@/lib/inputLimits";
+import { RATE_LIMITS, assertRateLimit } from "@/lib/rateLimit";
 
 const fireworks = createOpenAI({
   apiKey: process.env.FIREWORKS_API_KEY ?? "",
   baseURL: "https://api.fireworks.ai/inference/v1",
 });
 
+function providerKey(modelName: string): string | null {
+  switch (modelName) {
+    case "gpt-4o":
+      return process.env.OPENAI_API_KEY ?? "";
+    case "gemini-1.5-pro":
+      return process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? "";
+    case "mistral-large":
+      return process.env.MISTRAL_API_KEY ?? "";
+    case "claude-3-5-sonnet":
+      return process.env.ANTHROPIC_API_KEY ?? "";
+    case "llama-v3p1-405b":
+      return process.env.FIREWORKS_API_KEY ?? "";
+    default:
+      return null;
+  }
+}
+
+function assertProviderConfigured(modelName: string) {
+  const apiKey = providerKey(modelName);
+  if (apiKey === null) {
+    throw new Error(`Unsupported model name: ${modelName}`);
+  }
+  if (!apiKey.trim()) {
+    throw new Error("The selected model is not configured");
+  }
+}
+
 async function getModel(modelName: string) {
+  assertProviderConfigured(modelName);
   switch (modelName) {
     case "gpt-4o":
       return openai("gpt-4o");
@@ -77,23 +110,23 @@ async function generateResponse(
 export async function generateWithChunks(
   chunks: string[],
   query: string,
-  modelName: string
+  modelName: string,
+  idToken: string
 ): Promise<ReturnType<typeof generateResponse>> {
-  // Validate inputs
-  if (!query?.trim()) {
-    throw new Error("Query cannot be empty");
-  }
+  const uid = await verifyFirebaseIdToken(idToken);
+  const trimmedQuery = assertQuery(query);
+  const boundedChunks = assertChunks(chunks);
+  assertProviderConfigured(modelName);
+  assertRateLimit(
+    `generate:${uid}`,
+    RATE_LIMITS.generate.limit,
+    RATE_LIMITS.generate.windowMs
+  );
 
-  if (!chunks || chunks.length === 0) {
-    throw new Error("No context chunks provided");
-  }
-
-  // Combine the retrieved chunks into a single text block
-  const chunkText = chunks.join("\n");
-
-  // Create the system prompt with the retrieved chunks
+  const chunkText = boundedChunks.join("\n");
   const systemPrompt = SYSTEM_PROMPT_TEMPLATE.replace("{chunks}", chunkText);
 
-  // Generate an answer based on the system prompt and user query
-  return generateResponse(systemPrompt, query, modelName);
+  return withCredits(uid, CREDIT_COSTS.generate, () =>
+    generateResponse(systemPrompt, trimmedQuery, modelName)
+  );
 }
