@@ -47,6 +47,10 @@ try {
     adminAuth = {} as Auth;
   }
 } catch {
+  if (hasAdminConfig) {
+    // Do not log the error object; credential parsers can echo key material.
+    console.error("Firebase Admin initialization failed");
+  }
   adminBucket = {} as Bucket;
   adminDb = {} as Firestore;
   adminAuth = {} as Auth;
@@ -77,4 +81,12 @@ export function getAdminDb(): Firestore {
   }
 
   return adminDb;
+}
+
+export function getAdminBucket(): Bucket {
+  if (typeof adminBucket.file !== "function") {
+    throw new Error("Firebase Admin Storage is not configured");
+  }
+
+  return adminBucket;
 }

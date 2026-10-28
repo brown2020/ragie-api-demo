@@ -24,6 +24,12 @@ import {
 } from "@/firebase/firebaseClient";
 import { UploadIcon } from "lucide-react";
 import { uploadToRagie } from "@/actions/uploadToRagie";
+import { INPUT_LIMITS } from "@/lib/inputLimits";
+import {
+  contentTypeForFileName,
+  isSafeStorageUrl,
+  sanitizeFileName,
+} from "@/lib/storageAccess";
 import { useAuthStore } from "@/zustand/useAuthStore";
 import toast from "react-hot-toast";
 
@@ -31,6 +37,7 @@ interface DocumentData {
   id: string;
   name: string;
   url: string;
+  storagePath?: string;
   uploadedToRagie: boolean;
   createdAt?: Timestamp;
   createdAtLabel?: string;
@@ -74,10 +81,26 @@ export default function FileManagement() {
         return;
       }
 
-      setUploading(true);
       const file = acceptedFiles[0];
-      const storageRef = ref(storage, `users/${uid}/documents/${file.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
+      if (!file) return;
+      const contentType = contentTypeForFileName(file.name, file.type);
+      if (!contentType) {
+        toast.error("Upload a PDF, text, CSV, or Office document.");
+        return;
+      }
+      if (file.size <= 0 || file.size > INPUT_LIMITS.maxUploadBytes) {
+        toast.error("File must be 32 MB or smaller.");
+        return;
+      }
+
+      setUploading(true);
+      const displayName = file.name.trim().slice(0, 255) || "document";
+      const storagePath = `users/${uid}/documents/${crypto.randomUUID()}-${sanitizeFileName(file.name)}`;
+      const storageRef = ref(storage, storagePath);
+      const uploadTask = uploadBytesResumable(storageRef, file, {
+        contentType,
+        contentDisposition: `attachment; filename="${sanitizeFileName(file.name)}"`,
+      });
       uploadTaskRef.current = uploadTask;
 
       try {
@@ -87,8 +110,9 @@ export default function FileManagement() {
         const createdAt = Timestamp.now();
 
         const docRef = await addDoc(collection(db, `users/${uid}/documents`), {
-          name: file.name,
+          name: displayName,
           url: downloadURL,
+          storagePath,
           uploadedToRagie: false,
           createdAt,
         });
@@ -97,8 +121,9 @@ export default function FileManagement() {
           ...prev,
           {
             id: docRef.id,
-            name: file.name,
+            name: displayName,
             url: downloadURL,
+            storagePath,
             uploadedToRagie: false,
             createdAt,
             createdAtLabel: formatDocDate(createdAt),
@@ -123,6 +148,18 @@ export default function FileManagement() {
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     noClick: true,
+    multiple: false,
+    maxSize: INPUT_LIMITS.maxUploadBytes,
+    accept: {
+      "application/pdf": [".pdf"],
+      "text/plain": [".txt"],
+      "text/markdown": [".md"],
+      "text/csv": [".csv"],
+      "application/msword": [".doc"],
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
+    },
   });
 
   const loadDocuments = useCallback(async () => {
@@ -156,7 +193,8 @@ export default function FileManagement() {
 
     try {
       const idToken = await getFirebaseIdToken();
-      const result = await uploadToRagie(document.url, document.name, idToken);
+      const fileRef = document.storagePath || document.url;
+      const result = await uploadToRagie(fileRef, document.name, idToken);
       if (!result.ok) {
         toast.error(result.error.message);
         return;
@@ -239,14 +277,18 @@ export default function FileManagement() {
               className="flex items-center justify-between p-4 border rounded-lg shadow-sm bg-white"
             >
               <div className="flex items-center space-x-4">
-                <a
-                  href={document.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-700 hover:underline"
-                >
-                  {document.name}
-                </a>
+                {isSafeStorageUrl(document.url) ? (
+                  <a
+                    href={document.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-700 hover:underline"
+                  >
+                    {document.name}
+                  </a>
+                ) : (
+                  <span className="text-gray-800">{document.name}</span>
+                )}
                 {document.uploadedToRagie ? (
                   <span className="text-sm text-green-700">
                     Uploaded to Ragie
