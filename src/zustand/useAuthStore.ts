@@ -61,20 +61,17 @@ async function updateUserDetailsInFirestore(
   if (uid) {
     const userRef = doc(db, `users/${uid}`);
     // Create a sanitized object for Firestore
+    // Privileged flags and the credit balance are server-owned. Do not send them.
     const sanitizedDetails = {
-      firebaseUid: details.firebaseUid,
-      authEmail: details.authEmail,
-      authDisplayName: details.authDisplayName,
-      authPhotoUrl: details.authPhotoUrl,
-      authEmailVerified: details.authEmailVerified,
-      authReady: details.authReady,
-      authPending: details.authPending,
-      isAdmin: details.isAdmin,
-      isAllowed: details.isAllowed,
-      isInvited: details.isInvited,
-      premium: details.premium,
-      credits: details.credits,
-      lastSignIn: serverTimestamp(), // Ensure lastSignIn is always updated
+      firebaseUid: details.firebaseUid ?? "",
+      authEmail: details.authEmail ?? "",
+      authDisplayName: details.authDisplayName ?? "",
+      authPhotoUrl: details.authPhotoUrl ?? "",
+      authEmailVerified: details.authEmailVerified ?? false,
+      authReady: details.authReady ?? false,
+      authPending: details.authPending ?? false,
+      isInvited: details.isInvited ?? false,
+      lastSignIn: serverTimestamp(),
     };
 
     try {

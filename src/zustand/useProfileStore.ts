@@ -1,12 +1,12 @@
 import { create } from "zustand";
 import {
   doc,
-  getDoc,
-  setDoc,
+  runTransaction,
   updateDoc,
 } from "firebase/firestore";
 import { useAuthStore } from "./useAuthStore";
 import { db } from "@/firebase/firebaseClient";
+import { pickEditableProfileFields } from "@/lib/profileFields";
 
 export interface ProfileType {
   email: string;
@@ -62,28 +62,57 @@ const useProfileStore = create<ProfileState>((set, get) => ({
 
     try {
       const userRef = doc(db, `users/${uid}/profile/userData`);
-      const docSnap = await getDoc(userRef);
+      const authState = {
+        authEmail,
+        authDisplayName,
+        authPhotoUrl,
+        authEmailVerified,
+      };
 
-      let newProfile: ProfileType;
+      // Read and create inside one transaction so a payment increment cannot be overwritten.
+      const newProfile = await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(userRef);
+        if (!docSnap.exists()) {
+          const created: ProfileType = {
+            email: authEmail || "",
+            contactEmail: "",
+            displayName: authDisplayName || "",
+            photoUrl: authPhotoUrl || "",
+            emailVerified: authEmailVerified || false,
+            credits: 1000,
+          };
+          transaction.set(userRef, created);
+          return created;
+        }
 
-      if (docSnap.exists()) {
-        newProfile = mergeProfileWithDefaults(docSnap.data() as ProfileType, {
-          authEmail,
-          authDisplayName,
-          authPhotoUrl,
-          authEmailVerified,
-        });
-      } else {
-        newProfile = {
-          email: authEmail || "",
-          contactEmail: "",
-          displayName: authDisplayName || "",
-          photoUrl: authPhotoUrl || "",
-          emailVerified: authEmailVerified || false,
-          credits: 1000,
+        const data = docSnap.data() as Partial<ProfileType>;
+        const merged = mergeProfileWithDefaults(data, authState);
+        const needsScaffold =
+          typeof data.email !== "string" ||
+          typeof data.contactEmail !== "string" ||
+          typeof data.displayName !== "string" ||
+          typeof data.photoUrl !== "string" ||
+          typeof data.emailVerified !== "boolean";
+
+        if (needsScaffold) {
+          transaction.set(
+            userRef,
+            {
+              email: merged.email,
+              contactEmail: merged.contactEmail,
+              displayName: merged.displayName,
+              photoUrl: merged.photoUrl,
+              emailVerified: merged.emailVerified,
+            },
+            { merge: true }
+          );
+        }
+
+        return {
+          ...merged,
+          credits: typeof data.credits === "number" ? data.credits : merged.credits,
         };
-        await setDoc(userRef, newProfile);
-      }
+      });
 
       set({ profile: newProfile });
     } catch {
@@ -96,11 +125,12 @@ const useProfileStore = create<ProfileState>((set, get) => ({
     if (!uid) return;
 
     try {
-      const userRef = doc(db, `users/${uid}/profile/userData`);
-      const updatedProfile = { ...get().profile, ...newProfile };
+      const patch = pickEditableProfileFields(newProfile);
+      if (Object.keys(patch).length === 0) return;
 
-      await updateDoc(userRef, updatedProfile);
-      set({ profile: updatedProfile });
+      const userRef = doc(db, `users/${uid}/profile/userData`);
+      await updateDoc(userRef, patch);
+      set({ profile: { ...get().profile, ...patch } });
     } catch (error) {
       throw error;
     }
