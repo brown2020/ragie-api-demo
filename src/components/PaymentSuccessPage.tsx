@@ -7,6 +7,7 @@ import { processPaymentIntent } from "@/actions/paymentActions";
 import toast from "react-hot-toast";
 import { ClipLoader } from "react-spinners";
 import { getFirebaseIdToken } from "@/firebase/firebaseClient";
+import useProfileStore from "@/zustand/useProfileStore";
 
 type Props = {
   payment_intent: string;
@@ -24,6 +25,7 @@ export default function PaymentSuccessPage({ payment_intent }: Props) {
   } | null>(null);
 
   const uid = useAuthStore((state) => state.uid);
+  const fetchProfile = useProfileStore((state) => state.fetchProfile);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,6 +54,7 @@ export default function PaymentSuccessPage({ payment_intent }: Props) {
         if (cancelled) return;
 
         if (data.status === "succeeded") {
+          await fetchProfile();
           if (data.alreadyProcessed) {
             setMessage("Payment has already been processed.");
           } else {
@@ -88,7 +91,7 @@ export default function PaymentSuccessPage({ payment_intent }: Props) {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [payment_intent, uid]);
+  }, [payment_intent, uid, fetchProfile]);
 
   return (
     <main className="max-w-2xl mx-auto p-6 md:p-10">

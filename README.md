@@ -10,7 +10,7 @@ A Next.js demo that walks users through a **retrieval-augmented generation (RAG)
 - **Document management** — upload files to Firebase Storage, track metadata in Firestore, delete or send documents to Ragie
 - **Ragie integration** — upload documents with user-scoped metadata; retrieve scored chunks filtered by the authenticated user
 - **Multi-model generation** — stream answers with OpenAI (`gpt-4o`), Google (`gemini-1.5-pro`), Mistral (`mistral-large`), Anthropic (`claude-3-5-sonnet`), or Fireworks (`llama-v3p1-405b`) via the Vercel AI SDK
-- **Credits & Stripe checkout** — buy credits; payment intents are verified server-side against the Firebase UID
+- **Credits & Stripe checkout** — buy a fixed pack of 10,000 credits for $99.99. Upload costs 5 credits, retrieval costs 1, and generation costs 10. Payment intents are verified server-side against the Firebase UID. A signed `payment_intent.succeeded` webhook at `/api/stripe/webhook` grants the same credits when `STRIPE_WEBHOOK_SECRET` is set; without that secret the webhook returns 503 and the success page still fulfills the payment idempotently.
 - **Profile** — view and edit user profile data stored under `users/{uid}`
 - **Fixture mode** — set `RAGIE_USE_FIXTURES=true` to short-circuit Ragie calls for CI / local demos without spending API credits
 
@@ -90,7 +90,8 @@ Copy `.env.example` to `.env.local` and fill in values. **Never commit real keys
 | `FIREWORKS_API_KEY` | Fireworks / Llama via AI SDK | [Fireworks](https://fireworks.ai/) |
 | `NEXT_PUBLIC_STRIPE_KEY` | Stripe publishable key | Stripe Dashboard → API keys |
 | `STRIPE_SECRET_KEY` | Stripe secret key (server) | Stripe Dashboard → API keys |
-| `NEXT_PUBLIC_STRIPE_PRODUCT_NAME` | Product label used in payment intents | Your choice / Stripe product name |
+| `STRIPE_WEBHOOK_SECRET` | Optional signing secret for `POST /api/stripe/webhook`. If unset, checkout still works and the webhook route returns 503 | Stripe Dashboard → Developers → Webhooks → signing secret |
+| `NEXT_PUBLIC_STRIPE_PRODUCT_NAME` | Product label stored on payment intents and checked before credits are granted | Your choice / Stripe product name |
 | `NEXT_PUBLIC_FIREBASE_APIKEY` | Firebase web client config | Firebase Console → Project settings |
 | `NEXT_PUBLIC_FIREBASE_AUTHDOMAIN` | Firebase Auth domain | Firebase Console |
 | `NEXT_PUBLIC_FIREBASE_PROJECTID` | Firebase project id | Firebase Console |
@@ -117,7 +118,8 @@ Copy `.env.example` to `.env.local` and fill in values. **Never commit real keys
 1. Create a Firebase project and enable **Email/Password**, **Google**, and (optionally) **Email link** sign-in.
 2. Create a web app and copy the client config into the `NEXT_PUBLIC_FIREBASE_*` vars.
 3. Generate a service account key and map its fields to the `FIREBASE_*` Admin vars (escape newlines in `FIREBASE_PRIVATE_KEY`).
-4. Deploy or paste `firestore.rules` and `storage.rules` so users can only access `users/{uid}/...` data and storage paths.
+4. Deploy `firestore.rules` and `storage.rules` from this repo (this app does not deploy them for you). No composite index file is required; payment history sorts on the automatic single-field `createdAt` index.
+5. Optional: in Stripe, add an endpoint for `payment_intent.succeeded` at `https://<your-host>/api/stripe/webhook` and set `STRIPE_WEBHOOK_SECRET`. Leave it unset to keep webhook delivery disabled.
 
 ### Run locally
 

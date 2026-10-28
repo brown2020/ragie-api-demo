@@ -8,7 +8,7 @@ import {
 import { useEffect, useState } from "react";
 import { createPaymentIntent } from "@/actions/paymentActions";
 import { useAuthStore } from "@/zustand/useAuthStore";
-import convertToSubcurrency from "@/lib/convertToSubcurrency";
+import { PURCHASE_AMOUNT_CENTS, PURCHASE_CREDITS } from "@/lib/billing";
 import { ClipLoader } from "react-spinners";
 import { getFirebaseIdToken } from "@/firebase/firebaseClient";
 
@@ -35,10 +35,7 @@ export default function PaymentCheckoutPage({ amount }: Props) {
 
       try {
         const idToken = await getFirebaseIdToken();
-        const secret = await createPaymentIntent(
-          convertToSubcurrency(amount),
-          idToken
-        );
+        const secret = await createPaymentIntent(PURCHASE_AMOUNT_CENTS, idToken);
         if (!cancelled && secret) setClientSecret(secret);
       } catch {
         if (!cancelled) {
@@ -96,6 +93,23 @@ export default function PaymentCheckoutPage({ amount }: Props) {
     );
   }
 
+  if (errorMessage && !clientSecret) {
+    return (
+      <div className="flex flex-col items-center justify-center max-w-6xl mx-auto w-full gap-4 py-10 px-4">
+        <p className="text-red-700 text-center" role="alert">
+          {errorMessage}
+        </p>
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => window.location.reload()}
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
   if (!clientSecret || !stripe || !elements) {
     return (
       <div className="flex items-center justify-center max-w-6xl h-36 mx-auto w-full">
@@ -107,7 +121,9 @@ export default function PaymentCheckoutPage({ amount }: Props) {
   return (
     <main className="flex flex-col w-full items-center max-w-6xl mx-auto py-10 px-4">
       <div className="mb-10 text-center">
-        <h1 className="text-4xl font-bold text-gray-800">Buy 10,000 Credits</h1>
+        <h1 className="text-4xl font-bold text-gray-800">
+          Buy {PURCHASE_CREDITS.toLocaleString("en-US")} Credits
+        </h1>
         <h2 className="text-2xl text-gray-600 mt-2">
           Purchase amount: <span className="font-bold">${amount}</span>
         </h2>
