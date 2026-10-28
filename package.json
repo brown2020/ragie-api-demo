@@ -54,6 +54,9 @@
   },
   "overrides": {
     "@grpc/grpc-js": "1.14.6",
-    "postcss-selector-parser": "7.1.7"
+    "postcss-selector-parser": "7.1.7",
+    "jwks-rsa": {
+      "jose": "5.10.0"
+    }
   }
 }
