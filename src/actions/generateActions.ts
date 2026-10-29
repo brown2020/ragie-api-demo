@@ -10,7 +10,7 @@ import { verifyFirebaseIdToken } from "@/firebase/firebaseAdmin";
 import { CREDIT_COSTS } from "@/lib/billing";
 import { withCredits } from "@/lib/credits";
 import { assertChunks, assertQuery } from "@/lib/inputLimits";
-import { type RagieActionResult } from "@/lib/ragie-errors";
+import { actionFailure, mapKnownActionError, type ActionResult } from "@/lib/actionResult";
 import { RATE_LIMITS, assertRateLimit } from "@/lib/rateLimit";
 
 const fireworks = createOpenAI({
@@ -63,7 +63,7 @@ async function getModel(modelName: string) {
   }
 }
 
-const SYSTEM_PROMPT_TEMPLATE = `You are "Ragie AI", a professional but friendly AI chatbot working as an assistant to the user.
+const SYSTEM_PROMPT_TEMPLATE = `You are a professional but friendly AI chatbot working as an assistant to the user.
 Your current task is to help the user based on all of the information available to you shown below.
 Answer informally, directly, and concisely without a heading or greeting but include everything relevant.
 Use richtext Markdown when appropriate including bold, italic, paragraphs, and lists when helpful.
@@ -111,8 +111,8 @@ function generateFailure(
   status: number,
   code: string,
   message: string
-): RagieActionResult<never> {
-  return { ok: false, error: { status, code, message } };
+): ActionResult<never> {
+  return actionFailure(status, code, message);
 }
 
 // Returns a result instead of throwing so a failed Ask does not surface as
@@ -122,7 +122,7 @@ export async function generateWithChunks(
   query: string,
   modelName: string,
   idToken: string
-): Promise<RagieActionResult<StreamableValue<string>>> {
+): Promise<ActionResult<StreamableValue<string>>> {
   try {
     const uid = await verifyFirebaseIdToken(idToken);
     const trimmedQuery = assertQuery(query);
@@ -142,20 +142,10 @@ export async function generateWithChunks(
     );
     return { ok: true, data };
   } catch (error) {
+    const known = mapKnownActionError(error);
+    if (known) return known;
     if (!(error instanceof Error)) {
       return generateFailure(500, "GENERATE_FAILED", "Could not generate an answer.");
-    }
-    if (error.message === "User authentication required" || error.message === "Invalid Firebase authentication token") {
-      return generateFailure(401, "UNAUTHORIZED", "User authentication required.");
-    }
-    if (error.message === "Firebase Admin Auth is not configured") {
-      return generateFailure(500, "AUTH_NOT_CONFIGURED", "Sign-in verification is not configured.");
-    }
-    if (error.message === "Not enough credits") {
-      return generateFailure(402, "INSUFFICIENT_CREDITS", "Not enough credits.");
-    }
-    if (error.message === "Too many requests. Please try again later.") {
-      return generateFailure(429, "RATE_LIMITED", error.message);
     }
     if (error.message === "The selected model is not configured" || error.message.startsWith("Unsupported model name:")) {
       return generateFailure(500, "MODEL_NOT_CONFIGURED", error.message);

@@ -20,7 +20,6 @@ const contentSecurityPolicy = [
     "https://api.stripe.com",
     "https://*.stripe.com",
     "https://*.stripe.network",
-    "https://api.ragie.ai",
     "wss://*.firebaseio.com",
     "wss://*.googleapis.com",
     isProd ? "" : "ws://localhost:* http://localhost:* ws://127.0.0.1:* http://127.0.0.1:*",

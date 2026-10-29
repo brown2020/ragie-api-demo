@@ -66,7 +66,7 @@ export default function PrivacyPage() {
             We do not sell your personal information. We may share your
             information with third-party service providers who perform services
             on our behalf, such as payment processing (Stripe), cloud storage
-            (Firebase), and AI processing (Ragie, OpenAI, Anthropic, Google).
+            (Firebase), and AI processing (OpenAI file search, and other configured model providers).
             These providers are bound by contractual obligations to protect your
             data.
           </p>

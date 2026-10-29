@@ -20,8 +20,11 @@ rules_version = '2';
 //
 // users/{uid}/documents/{documentId}
 //   name, url, storagePath: strings
-//   uploadedToRagie: bool
+//   uploadedToRagie: bool (indexed flag; name kept for deployed rules)
 //   createdAt: timestamp (optional)
+//
+// users/{uid}/search/store and users/{uid}/search/files/{documentId}
+//   server-only OpenAI vector store id and file ids. Clients cannot write them.
 //
 // ===============================================================
 

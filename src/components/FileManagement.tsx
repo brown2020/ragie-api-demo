@@ -22,8 +22,9 @@ import {
   hasClientConfig,
   getFirebaseIdToken,
 } from "@/firebase/firebaseClient";
-import { UploadIcon } from "lucide-react";
-import { uploadToRagie } from "@/actions/uploadToRagie";
+import { Trash2, UploadIcon } from "lucide-react";
+import { deleteDocument } from "@/actions/deleteDocument";
+import { indexDocument } from "@/actions/indexDocument";
 import { INPUT_LIMITS } from "@/lib/inputLimits";
 import {
   contentTypeForFileName,
@@ -55,9 +56,8 @@ function formatDocDate(createdAt?: Timestamp): string {
 export default function FileManagement() {
   const [documents, setDocuments] = useState<DocumentData[]>([]);
   const [uploading, setUploading] = useState<boolean>(false);
-  const [ragieUploading, setRagieUploading] = useState<Record<string, boolean>>(
-    {}
-  );
+  const [indexing, setIndexing] = useState<Record<string, boolean>>({});
+  const [deleting, setDeleting] = useState<Record<string, boolean>>({});
   const uid = useAuthStore((state) => state.uid);
   const uploadTaskRef = useRef<UploadTask | null>(null);
 
@@ -183,18 +183,18 @@ export default function FileManagement() {
     }
   }, [uid]);
 
-  const handleUploadToRagie = async (document: DocumentData) => {
+  const handleIndex = async (document: DocumentData) => {
     if (!uid) {
-      toast.error("Please sign in to upload to Ragie");
+      toast.error("Please sign in to index files");
       return;
     }
 
-    setRagieUploading((prev) => ({ ...prev, [document.id]: true }));
+    setIndexing((prev) => ({ ...prev, [document.id]: true }));
 
     try {
       const idToken = await getFirebaseIdToken();
       const fileRef = document.storagePath || document.url;
-      const result = await uploadToRagie(fileRef, document.name, idToken);
+      const result = await indexDocument(fileRef, document.name, document.id, idToken);
       if (!result.ok) {
         toast.error(result.error.message);
         return;
@@ -210,13 +210,34 @@ export default function FileManagement() {
           d.id === document.id ? { ...d, uploadedToRagie: true } : d
         )
       );
-      toast.success("Uploaded to Ragie successfully");
+      toast.success("Document indexed for search");
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Error uploading to Ragie."
-      );
+      toast.error(error instanceof Error ? error.message : "Error indexing the document.");
     } finally {
-      setRagieUploading((prev) => ({ ...prev, [document.id]: false }));
+      setIndexing((prev) => ({ ...prev, [document.id]: false }));
+    }
+  };
+
+  const handleDelete = async (document: DocumentData) => {
+    if (!uid) {
+      toast.error("Please sign in to delete files");
+      return;
+    }
+
+    setDeleting((prev) => ({ ...prev, [document.id]: true }));
+    try {
+      const idToken = await getFirebaseIdToken();
+      const result = await deleteDocument(document.id, idToken);
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      setDocuments((prev) => prev.filter((item) => item.id !== document.id));
+      toast.success("Document deleted");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error deleting the document.");
+    } finally {
+      setDeleting((prev) => ({ ...prev, [document.id]: false }));
     }
   };
 
@@ -290,28 +311,29 @@ export default function FileManagement() {
                   <span className="text-gray-800">{document.name}</span>
                 )}
                 {document.uploadedToRagie ? (
-                  <span className="text-sm text-green-700">
-                    Uploaded to Ragie
-                  </span>
+                  <span className="text-sm text-green-700">Indexed</span>
                 ) : (
                   <button
                     type="button"
-                    onClick={() => handleUploadToRagie(document)}
-                    disabled={ragieUploading[document.id]}
+                    onClick={() => handleIndex(document)}
+                    disabled={indexing[document.id] || deleting[document.id]}
                     className={`flex items-center space-x-2 text-blue-700 px-3 py-1 rounded border border-blue-700 cursor-pointer hover:bg-blue-50 hover:shadow-sm transition-all duration-200 ${
-                      ragieUploading[document.id]
-                        ? "opacity-60 cursor-not-allowed"
-                        : ""
+                      indexing[document.id] ? "opacity-60 cursor-not-allowed" : ""
                     }`}
                   >
                     <UploadIcon className="w-4 h-4" />
-                    <span>
-                      {ragieUploading[document.id]
-                        ? "Uploading..."
-                        : "Upload to Ragie"}
-                    </span>
+                    <span>{indexing[document.id] ? "Indexing..." : "Index for search"}</span>
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => handleDelete(document)}
+                  disabled={deleting[document.id] || indexing[document.id]}
+                  className="flex items-center space-x-2 text-red-700 px-3 py-1 rounded border border-red-700 hover:bg-red-50 disabled:opacity-60"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>{deleting[document.id] ? "Deleting..." : "Delete"}</span>
+                </button>
               </div>
               <span className="text-sm text-gray-500">
                 {document.createdAtLabel ?? "Pending"}

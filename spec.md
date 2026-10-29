@@ -1,4 +1,4 @@
-# Ragie API Demo — current specification
+# RAG Demo — current specification
 
 This document describes the app as built on the `dev` branch. It is the specification of record. Older notes in `IMPROVEMENT_PLAN.md`, `CLAUDE.md`, `AGENTS.md`, and `agent-runs/` can lag behind this file.
 
@@ -8,9 +8,9 @@ Demonstrate a user-scoped RAG loop:
 
 1. Authenticate with Firebase.
 2. Upload an allowed document to Firebase Storage and record metadata in Firestore.
-3. Send that Storage object to Ragie.
-4. Retrieve chunks for a query, filtered to the signed-in user.
-5. Stream an answer grounded in those chunks.
+3. Index that Storage object with the OpenAI Files API into one vector store for the Firebase uid.
+4. Retrieve chunks for a query from that vector store.
+5. Answer the question with the Responses API `file_search` tool and show cited sources. The model id is the existing `gpt-4o`.
 6. Meter the loop with credits purchased through Stripe.
 
 ## Stack
@@ -18,11 +18,11 @@ Demonstrate a user-scoped RAG loop:
 - Next.js 16.4 App Router, React 19.3, TypeScript 6.0.
 - Tailwind CSS 4.
 - Firebase Auth, Firestore, and Storage on the client; Firebase Admin 14 on the server.
-- Ragie HTTP API (`https://api.ragie.ai`).
-- Vercel AI SDK (`ai` 7, `@ai-sdk/rsc`) with OpenAI, Google, Mistral, Anthropic, and a Fireworks-compatible OpenAI client.
+- OpenAI official `openai` npm SDK: Files API (`purpose: assistants`), one vector store per uid, and Responses API `file_search`. `OPENAI_API_KEY` is read only on the server. A missing key returns an error result and does not throw to the browser.
+- Vercel AI SDK (`ai` 7, `@ai-sdk/rsc`) remains available for the existing multi-model `generateWithChunks` action. Dashboard questions do not use that path.
 - Stripe 23 for a single catalog PaymentIntent.
 - Zustand for auth, profile, and payment client state.
-- Vitest for unit tests. GitHub Actions runs lint, typecheck, test, and production build on Node 22 without secrets.
+- Vitest for unit tests. GitHub Actions runs lint, typecheck, test, and production build on Node 24 without secrets.
 
 Model ids are part of the product behavior and are not changed by dependency maintenance:
 
@@ -41,7 +41,7 @@ The dashboard always calls `gpt-4o`.
 | Path | Behavior |
 | --- | --- |
 | `/` | Marketing / signed-in home |
-| `/dashboard` | File list, Ragie upload, retrieval, generation |
+| `/dashboard` | File list, index, delete, chunk retrieval, cited answers |
 | `/profile` | Read-only auth, credits, and payment history |
 | `/payment-attempt` | Stripe Elements for the catalog amount. If `NEXT_PUBLIC_STRIPE_KEY` is missing, the page says Stripe is not configured |
 | `/payment-success` | After a succeeded intent, calls the fulfill action and refreshes the profile |
@@ -60,20 +60,22 @@ The dashboard always calls `gpt-4o`.
 
 Allowed types: PDF, `text/plain`, `text/markdown`, `text/csv`, DOC, DOCX, XLSX, PPTX. HTML and SVG are rejected. Max size is 32 MB. File names are sanitized and capped at 200 characters.
 
-Storage objects use `users/{uid}/documents/{uuid}-{sanitizedName}` and `Content-Disposition: attachment`. Firestore document creates require `storagePath`. Client updates may change `uploadedToRagie` only.
+Storage objects use `users/{uid}/documents/{uuid}-{sanitizedName}` and `Content-Disposition: attachment`. Firestore document creates require `storagePath`. Client updates may change `uploadedToRagie` only. That boolean is the indexed flag kept so existing security rules still accept the client write. The OpenAI file id and vector store id live under `users/{uid}/search/`, which clients cannot write.
 
-`uploadToRagie`:
+`indexDocument`:
 
 - Authenticates first.
 - Accepts a storage path or an `https` Firebase download URL whose bucket matches `NEXT_PUBLIC_FIREBASE_STORAGEBUCKET` and whose object path is under `users/{uid}/documents/`. It never `fetch`es the URL.
-- Downloads bytes with the Admin bucket, checks existence, size, and content type, then posts multipart form data to Ragie with `scope: tutorial` and the UID in metadata.
-- Charges 5 credits even in fixture mode. Known failures map to 401, 402, 429, 400, 413, 415, 404, 408, or 500. Upstream response bodies are not returned to the client.
+- Downloads bytes with the Admin bucket, checks existence, size, and content type, uploads the file with the OpenAI Files API, and attaches it to the user's vector store.
+- Charges 5 credits. A missing `OPENAI_API_KEY` returns a clear error before the provider call.
 
-`retrieveChunks` authenticates, caps the query at 4,000 characters, rate-limits, charges 1 credit, and queries Ragie with the same user filter (or returns a fixture).
+`retrieveChunks` authenticates, caps the query at 4,000 characters, rate-limits, charges 1 credit, and searches that vector store.
+
+`askDocuments` authenticates, rate-limits, charges 10 credits, and calls the Responses API with `file_search` and model `gpt-4o`. The result includes the answer and file citations. `deleteDocument` removes the OpenAI file, the Storage object, and the Firestore document.
 
 ## Generation
 
-`generateWithChunks` authenticates, validates the query and chunks (at most 20 chunks, 8,000 characters each, 32,000 total), checks that the selected provider key is set, rate-limits, charges 10 credits, then streams with `@ai-sdk/rsc`. Credits are refunded if the provider call throws. An unknown model id is unsupported. An empty key returns "The selected model is not configured".
+`generateWithChunks` still authenticates, validates the query and chunks (at most 20 chunks, 8,000 characters each, 32,000 total), checks that the selected provider key is set, rate-limits, charges 10 credits, then streams with `@ai-sdk/rsc`. The dashboard Ask button does not call it. An unknown model id is unsupported. An empty key returns "The selected model is not configured". Model ids are unchanged.
 
 ## Credits and payments
 
@@ -101,15 +103,15 @@ Storage (`storage.rules`):
 - 32 MB cap and an anchored content-type allowlist matching the app.
 - Objects must live under `users/{uid}/documents/`.
 
-`next.config.mjs` sends CSP (Stripe, Google auth, Firebase, Ragie; `unsafe-inline` and `unsafe-eval` for Next.js), `X-Frame-Options: DENY`, `nosniff`, Referrer-Policy, and Permissions-Policy. HSTS is production-only. Dev CSP allows localhost HTTP and WebSocket for HMR. Images: `firebasestorage.googleapis.com` and `lh3.googleusercontent.com`.
+`next.config.mjs` sends CSP (Stripe, Google auth, Firebase; `unsafe-inline` and `unsafe-eval` for Next.js), `X-Frame-Options: DENY`, `nosniff`, Referrer-Policy, and Permissions-Policy. HSTS is production-only. Dev CSP allows localhost HTTP and WebSocket for HMR. Images: `firebasestorage.googleapis.com` and `lh3.googleusercontent.com`. OpenAI is called only from server actions.
 
 ## Configuration
 
-See `README.md` for the env var name list. Server secrets stay in server actions and host env. `RAGIE_USE_FIXTURES=true` is set in CI. Empty Firebase and Stripe config must not fail `next build`.
+See `README.md` for the env var name list. Server secrets stay in server actions and host env. Empty Firebase, Stripe, and OpenAI config must not fail `next build`.
 
 ## Quality gate
 
-`npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` must pass. CI uses `npm ci --ignore-scripts` and sets `RAGIE_USE_FIXTURES=true` for test and build. No Actions secrets are required.
+`npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` must pass. CI uses `npm ci --ignore-scripts` with no Actions secrets.
 
 ## Out of scope for this spec
 

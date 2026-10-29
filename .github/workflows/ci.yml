@@ -6,7 +6,7 @@ on:
 jobs:
   gate:
     runs-on: ubuntu-latest
-    # Client NEXT_PUBLIC_* / Firebase / Stripe / Ragie are optional for this gate:
+    # Client NEXT_PUBLIC_* / Firebase / Stripe / OpenAI are optional for this gate:
     # firebaseClient and firebaseAdmin skip or soft-fail init when unset so
     # lint/typecheck/test/build succeed. Never inline keys here — if a future
     # smoke job needs web config, inject only via ${{ secrets.* }} on that job
@@ -21,8 +21,4 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-        env:
-          RAGIE_USE_FIXTURES: "true"
       - run: npm run build
-        env:
-          RAGIE_USE_FIXTURES: "true"

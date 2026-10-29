@@ -1,6 +1,6 @@
 # RAG Demo (ragie-api-demo)
 
-A Next.js demo of a user-scoped **retrieval-augmented generation (RAG)** workflow: sign in with Firebase, upload documents, index them with [Ragie](https://www.ragie.ai/), retrieve scored chunks for a query, and stream an AI answer grounded in that context. Credits are purchased through Stripe.
+A Next.js demo of a user-scoped **retrieval-augmented generation (RAG)** workflow: sign in with Firebase, upload documents, index them with OpenAI file search, retrieve scored chunks, and ask questions that come back with cited sources. Credits are purchased through Stripe.
 
 **Live demo:** [https://ragdemo-three.vercel.app](https://ragdemo-three.vercel.app)
 
@@ -8,11 +8,10 @@ A Next.js demo of a user-scoped **retrieval-augmented generation (RAG)** workflo
 
 - **Firebase Auth** — email/password, Google sign-in, and email-link sign-in. Server actions verify a Firebase ID token and derive the UID server-side.
 - **Document management** — upload PDF, plain text, Markdown, CSV, DOC, DOCX, XLSX, or PPTX files (32 MB max) to Firebase Storage under a unique `users/{uid}/documents/{uuid}-{name}` path, and track metadata in Firestore. There is no user-facing delete control; a failed metadata write deletes the Storage object as cleanup.
-- **Ragie integration** — the server reads the user's Storage object with the Admin SDK (it does not fetch a caller-supplied URL), uploads it to Ragie with user-scoped metadata, and retrieves chunks filtered to that user.
-- **Generation** — the dashboard streams answers with OpenAI `gpt-4o` through the Vercel AI SDK. The server action can also call Google `gemini-1.5-pro`, Mistral `mistral-large`, Anthropic `claude-3-5-sonnet`, or Fireworks `llama-v3p1-405b` when those model ids are passed. The dashboard does not expose a model picker.
+- **OpenAI file search** — the server reads the user's Storage object with the Admin SDK (it does not fetch a caller-supplied URL), uploads it with the OpenAI Files API, and attaches it to one vector store per Firebase uid. Retrieval uses vector store search. Questions use the Responses API `file_search` tool and show the cited files.
+- **Generation** — cited answers use the existing `gpt-4o` model id through the Responses API. The server action `generateWithChunks` can still call Google `gemini-1.5-pro`, Mistral `mistral-large`, Anthropic `claude-3-5-sonnet`, or Fireworks `llama-v3p1-405b` when those model ids are passed. The dashboard does not expose a model picker.
 - **Credits and Stripe** — new profiles start with 1,000 credits. A catalog pack is 10,000 credits for $99.99. Upload costs 5, retrieval costs 1, and generation costs 10; the debit is refunded if the provider call throws. Intents are created and fulfilled server-side against the Firebase UID. `POST /api/stripe/webhook` accepts a signed `payment_intent.succeeded` event when `STRIPE_WEBHOOK_SECRET` is set; without that secret the route returns 503 and the success page still fulfills the payment idempotently.
 - **Profile** — view auth details, credit balance, and payment history. The page does not edit profile fields.
-- **Fixture mode** — `RAGIE_USE_FIXTURES=true` short-circuits live Ragie calls for CI and local builds. It does not prove live retrieval quality.
 - **Baseline headers** — CSP, `X-Frame-Options`, `nosniff`, Referrer-Policy, and Permissions-Policy on every route. HSTS is sent only when `NODE_ENV=production`.
 
 ## Tech stack
@@ -23,7 +22,7 @@ A Next.js demo of a user-scoped **retrieval-augmented generation (RAG)** workflo
 | UI | React `^19.3.1`, Tailwind CSS `^4.3.3`, Lucide `1.63.0` |
 | Language | TypeScript `^6.0.3` |
 | Auth / data | Firebase `^13.1.0` (Auth, Firestore, Storage) + Firebase Admin `^14.5.0` |
-| RAG | Ragie HTTP API |
+| Search | OpenAI Files API, Vector Stores, and Responses `file_search` (`openai` npm SDK) |
 | AI | Vercel AI SDK (`ai` `^7.0.156`, `@ai-sdk/*`, `@ai-sdk/rsc` `^3.0.156`) |
 | Payments | Stripe `^23.0.1`, `@stripe/react-stripe-js` `^7.0.1` |
 | State | Zustand `^5.0.16` |
@@ -38,7 +37,7 @@ A Next.js demo of a user-scoped **retrieval-augmented generation (RAG)** workflo
 ```
 src/
   app/                 # App Router pages and the Stripe webhook route
-  actions/             # Server actions: Ragie upload/retrieve, AI generate, Stripe
+  actions/             # Server actions: OpenAI index/search/ask, Stripe
   components/          # Auth, dashboard, profile, payments, layout
   firebase/            # Client and Admin Firebase init
   lib/                 # Billing, credits, rate limits, storage checks, fixtures
@@ -54,7 +53,7 @@ roadmap.md             # Next steps, known limits, open issues
 | Path | Purpose |
 | --- | --- |
 | `/` | Landing / signed-in home |
-| `/dashboard` | Upload, send to Ragie, retrieve chunks, generate |
+| `/dashboard` | Upload, index, delete, retrieve chunks, ask with sources |
 | `/profile` | View profile, credits, and payments |
 | `/payment-attempt` | Stripe checkout for the catalog pack |
 | `/payment-success` | Confirm payment and fulfill credits |
@@ -65,11 +64,10 @@ roadmap.md             # Next steps, known limits, open issues
 
 ### Prerequisites
 
-- Node.js 22 (CI and local verification use Node 22). The Firebase client packages declare a higher `engines` range; install may warn, and the app still builds on Node 22.
+- Node.js 24 (CI uses Node 24). The Firebase client packages declare `engines` `node >= 24.12.0`.
 - npm
 - A Firebase project with Auth, Firestore, and Storage
-- A Ragie API key
-- An OpenAI API key for the dashboard flow (other provider keys only if those models are called)
+- An OpenAI API key for indexing, search, and cited answers (other provider keys only if those models are called)
 - A Stripe account for checkout
 
 ### Install
@@ -86,9 +84,7 @@ Copy `.env.example` to `.env.local` and fill in your own values. Never commit re
 
 | Variable | Required for | Purpose |
 | --- | --- | --- |
-| `RAGIE_API_KEY` | Live indexing and retrieval | Ragie API authentication |
-| `RAGIE_USE_FIXTURES` | CI / local without Ragie | Set to `true` to skip live Ragie calls |
-| `OPENAI_API_KEY` | Dashboard generation | OpenAI `gpt-4o` |
+| `OPENAI_API_KEY` | Indexing, search, and cited answers | OpenAI API key. Server only. Missing key returns a clear error |
 | `ANTHROPIC_API_KEY` | Only if that model is called | Anthropic |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | Only if that model is called | Google Gemini |
 | `MISTRAL_API_KEY` | Only if that model is called | Mistral |
@@ -137,8 +133,8 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000).
 
 ```bash
-RAGIE_USE_FIXTURES=true npm test
-RAGIE_USE_FIXTURES=true npm run build
+npm test
+npm run build
 ```
 
 ## Scripts
@@ -155,13 +151,13 @@ RAGIE_USE_FIXTURES=true npm run build
 
 ## Testing and CI
 
-`.github/workflows/ci.yml` runs on pushes to `dev` and `main`, and on pull requests, with Node 22 and no secrets:
+`.github/workflows/ci.yml` runs on pushes to `dev` and `main`, and on pull requests, with Node 24 and no secrets:
 
 1. `npm ci --ignore-scripts`
 2. `npm run lint`
 3. `npm run typecheck`
-4. `npm test` with `RAGIE_USE_FIXTURES=true`
-5. `npm run build` with `RAGIE_USE_FIXTURES=true`
+4. `npm test`
+5. `npm run build`
 
 ## Deployment
 

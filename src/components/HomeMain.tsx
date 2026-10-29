@@ -5,7 +5,7 @@ import { useFirebaseAuth } from "./AuthProvider";
 import Image from "next/image";
 import Link from "next/link";
 
-export default function RagieMain() {
+export default function HomeMain() {
   const { user, loading } = useFirebaseAuth();
   const authReady = useAuthStore((state) => state.authReady);
   const photoUrl = useAuthStore((state) => state.authPhotoUrl);

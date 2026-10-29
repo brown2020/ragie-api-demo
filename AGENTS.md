@@ -2,7 +2,7 @@
 
 ## Project Shape
 
-This repository is a Next.js 16 App Router demo for retrieval-augmented generation with Ragie. The app uses React 19, TypeScript, Tailwind CSS 4, Firebase Auth, Firestore, Firebase Storage, Stripe, Zustand, and Vercel AI SDK providers.
+This repository is a Next.js 16 App Router demo for retrieval-augmented generation with OpenAI file search. The app uses React 19, TypeScript, Tailwind CSS 4, Firebase Auth, Firestore, Firebase Storage, Stripe, Zustand, the official `openai` SDK, and Vercel AI SDK providers.
 
 ## Commands
 
@@ -19,10 +19,10 @@ Use `npm run lint` as the primary quality gate. Use `npm run build` when source 
 
 - `src/app/`: Next.js routes and root layout.
 - `src/components/`: Client UI, auth provider, dashboard, profile, payment, retrieval, and generation components.
-- `src/actions/`: Server actions for Ragie upload/retrieval, AI generation, Stripe checkout, and verified payment processing.
+- `src/actions/`: Server actions for OpenAI indexing, vector-store search, cited answers, Stripe checkout, and verified payment processing.
 - `src/firebase/`: Firebase client and admin initialization.
 - `src/zustand/`: Client state stores for auth, profile/credits, and payments.
-- `src/lib/`: Shared utility and Ragie error helpers.
+- `src/lib/`: Shared helpers, including the OpenAI file-search client.
 - `firestore.rules` and `storage.rules`: Firebase access rules.
 - `agent-runs/`: Resumable codebase-improvement run reports.
 
@@ -31,8 +31,8 @@ Use `npm run lint` as the primary quality gate. Use `npm run build` when source 
 - The root layout wraps pages with `AuthProvider`, `Header`, `Footer`, and a toast provider.
 - Firebase Auth is the current authentication source. `AuthProvider` listens with `onAuthStateChanged` and mirrors auth details into the Zustand auth store.
 - User data is scoped under Firestore paths such as `users/{uid}/profile/userData`, `users/{uid}/documents`, and `users/{uid}/payments`.
-- Document files are uploaded to Firebase Storage under `users/{uid}/documents/{fileName}` before being sent to Ragie through server actions.
-- Ragie calls use the server-side `RAGIE_API_KEY` environment variable and include UID metadata/filtering derived from a verified Firebase ID token.
+- Document files are uploaded to Firebase Storage under `users/{uid}/documents/{fileName}` and then indexed through server actions.
+- OpenAI file search uses the server-side `OPENAI_API_KEY`. Each Firebase uid has one vector store. The Responses call reuses the existing `gpt-4o` model id.
 - AI generation uses `@ai-sdk/rsc` streaming and provider packages for OpenAI, Google, Mistral, Anthropic, and Fireworks-compatible OpenAI calls.
 - Stripe checkout is handled through server actions. Successful payment processing records the payment and increments credits server-side with Admin Firestore.
 
@@ -51,4 +51,4 @@ Use `npm run lint` as the primary quality gate. Use `npm run build` when source 
 - Gate workflow (`.github/workflows/ci.yml`) is **secret-free**: lint, typecheck, unit tests, and production build must succeed without Actions secrets.
 - Never inline `NEXT_PUBLIC_*` / API keys in workflow YAML — use `${{ secrets.* }}` only if a separate smoke job needs them.
 - Firebase client/admin and Stripe init are deferred/guarded so empty secrets do not red the gate.
-- Set `RAGIE_USE_FIXTURES=true` in CI tests/build to avoid burning paid Ragie credits. Fixtures cannot prove live retrieval quality or metering.
+- CI does not call OpenAI. Unit tests mock the search client. A missing `OPENAI_API_KEY` must return a clear error at runtime.

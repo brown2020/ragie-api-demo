@@ -65,9 +65,9 @@ export default function AboutPage() {
             Technology Stack
           </h2>
           <p className="text-gray-600 leading-relaxed">
-            Built with Next.js, React, Firebase, and powered by the Ragie API
-            for document retrieval. The application uses multiple AI providers
-            through the Vercel AI SDK for flexible model selection.
+            Built with Next.js, React, and Firebase. Document search uses the
+            OpenAI Files API, a vector store per signed-in user, and the
+            Responses API file search tool.
           </p>
         </section>
 

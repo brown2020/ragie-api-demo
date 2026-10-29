@@ -1,8 +1,7 @@
 "use client";
 import { useState } from "react";
-import { retrieveChunks, type RetrievedChunk } from "@/actions/retrieveChunks";
-import { generateWithChunks } from "@/actions/generateActions";
-import { readStreamableValue } from "@ai-sdk/rsc";
+import { askDocuments } from "@/actions/askDocuments";
+import type { SearchSource } from "@/lib/openai-search";
 import { useAuthStore } from "@/zustand/useAuthStore";
 import ReactMarkdown from "react-markdown";
 import { getFirebaseIdToken } from "@/firebase/firebaseClient";
@@ -10,6 +9,7 @@ import { getFirebaseIdToken } from "@/firebase/firebaseClient";
 export default function GenerateContent() {
   const [query, setQuery] = useState<string>("");
   const [generatedContent, setGeneratedContent] = useState<string>("");
+  const [sources, setSources] = useState<SearchSource[]>([]);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [status, setStatus] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -29,42 +29,19 @@ export default function GenerateContent() {
     try {
       setIsGenerating(true);
       setError(null);
-      setStatus("Retrieving...");
+      setStatus("Searching...");
       setGeneratedContent("");
+      setSources([]);
 
       const idToken = await getFirebaseIdToken();
-      const retrieved = await retrieveChunks(query, idToken);
-      if (!retrieved.ok) {
-        setError(retrieved.error.message);
+      const answer = await askDocuments(query, idToken);
+      if (!answer.ok) {
+        setError(answer.error.message);
         return;
       }
 
-      const chunks: RetrievedChunk[] = retrieved.data.scored_chunks;
-      if (chunks.length === 0) {
-        setError(
-          "No relevant content found. Please upload some documents first."
-        );
-        return;
-      }
-
-      setStatus("Generating...");
-
-      const generated = await generateWithChunks(
-        chunks.map((chunk) => chunk.text),
-        query,
-        "gpt-4o",
-        idToken
-      );
-      if (!generated.ok) {
-        setError(generated.error.message);
-        return;
-      }
-
-      for await (const content of readStreamableValue(generated.data)) {
-        if (content) {
-          setGeneratedContent(content.trim());
-        }
-      }
+      setGeneratedContent(answer.data.answer);
+      setSources(answer.data.sources);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unknown error occurred");
     } finally {
@@ -131,6 +108,23 @@ export default function GenerateContent() {
           </p>
         )}
       </div>
+
+      {sources.length > 0 && (
+        <div className="mt-4">
+          <h2 className="text-lg font-semibold text-gray-800">Sources</h2>
+          <ul className="mt-2 space-y-2">
+            {sources.map((source) => (
+              <li
+                key={`${source.fileId ?? source.filename}-${source.text ?? ""}`}
+                className="p-3 border rounded-lg bg-white text-sm text-gray-700"
+              >
+                <p className="font-medium">{source.filename}</p>
+                {source.text && <p className="mt-1 text-gray-600">{source.text}</p>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

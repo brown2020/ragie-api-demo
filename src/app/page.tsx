@@ -1,5 +1,5 @@
-import RagieMain from "@/components/RagieMain";
+import HomeMain from "@/components/HomeMain";
 
 export default function HomePage() {
-  return <RagieMain />;
+  return <HomeMain />;
 }

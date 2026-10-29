@@ -98,6 +98,9 @@ export default function QueryRetrieval() {
               key={`${chunk.score}-${chunk.text.slice(0, 48)}`}
               className="p-3 border rounded-lg shadow-sm bg-gray-50"
             >
+              {chunk.filename && (
+                <p className="text-sm font-medium text-gray-800">{chunk.filename}</p>
+              )}
               <p className="text-gray-700">{chunk.text}</p>
               <p className="text-xs text-gray-500 mt-2">
                 Relevance Score: {(chunk.score * 100).toFixed(1)}%

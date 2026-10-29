@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 ## Project Overview
 
-This is a **Ragie API Demo** - a full-stack Next.js application demonstrating RAG (Retrieval-Augmented Generation) capabilities with multi-provider AI model support, payment processing, and document management.
+This is a **RAG API Demo** - a full-stack Next.js application demonstrating retrieval-augmented generation with OpenAI file search, multi-provider AI model support, payment processing, and document management.
 
 ## Tech Stack
 
@@ -15,7 +15,7 @@ This is a **Ragie API Demo** - a full-stack Next.js application demonstrating RA
 - **Authentication**: Firebase Auth (Google, email/password, email link)
 - **Database/Storage**: Firebase Firestore + Firebase Storage
 - **Payments**: Stripe
-- **RAG Service**: Ragie API
+- **Search**: OpenAI Files API, Vector Stores, and Responses API file search (`openai` npm SDK)
 - **AI Providers**: OpenAI, Anthropic, Google AI, Mistral, Fireworks (via AI SDK)
 
 ## Common Commands
@@ -44,7 +44,7 @@ src/
 ├── components/             # React components
 │   ├── AuthProvider.tsx    # Firebase Auth context provider
 │   ├── AuthModal.tsx       # Sign in/sign up modal
-│   ├── FileManagement.tsx  # Upload/Ragie document management
+│   ├── FileManagement.tsx  # Upload, index, and delete documents
 │   ├── GenerateContent.tsx # Query + AI content generation
 │   ├── QueryRetrieval.tsx  # Chunk retrieval display
 │   ├── Header.tsx          # Navigation with auth
@@ -52,8 +52,9 @@ src/
 │   └── ...
 ├── actions/                # Next.js Server Actions
 │   ├── index.ts            # Barrel exports
-│   ├── uploadToRagie.ts    # Upload files to Ragie API
-│   ├── retrieveChunks.ts   # Query Ragie retrieval endpoint
+│   ├── indexDocument.ts    # Index a Storage file into the user's vector store
+│   ├── retrieveChunks.ts   # Vector store search
+│   ├── askDocuments.ts     # Responses API file_search answers with citations
 │   ├── generateActions.ts  # Multi-provider AI generation
 │   └── paymentActions.ts   # Stripe payment handling
 ├── zustand/                # Zustand state stores
@@ -69,7 +70,7 @@ src/
 └── lib/                    # Utilities
     ├── index.ts            # Barrel exports
     ├── convertToSubcurrency.ts
-    └── ragie-errors.ts     # Error handling utilities
+    └── openai-search.ts    # Files, vector stores, and file_search helper
 ```
 
 ## Key Architecture Patterns
@@ -86,13 +87,13 @@ All data is user-scoped:
 - Documents: `users/{uid}/documents`
 - Payments: `users/{uid}/payments`
 - Profile: `users/{uid}/profile/userData`
-- Ragie uploads include userId in metadata for filtering
+- OpenAI vector store id and file ids: `users/{uid}/search` (server only)
 
 ### Server Actions Pattern
 Server actions receive userId from client and validate:
 ```typescript
-export async function uploadToRagie(fileUrl: string, fileName: string, userId: string) {
-  if (!userId) throw new Error("User authentication required");
+export async function indexDocument(fileRef: string, fileName: string, documentId: string, idToken: string) {
+  const uid = await verifyFirebaseIdToken(idToken);
   // ... rest of implementation
 }
 ```
@@ -128,7 +129,7 @@ Required environment variables:
 - Firebase Admin: `FIREBASE_PROJECT_ID`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`
 - AI APIs: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `MISTRAL_API_KEY`, `FIREWORKS_API_KEY`
 - Stripe: `NEXT_PUBLIC_STRIPE_KEY`, `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PRODUCT_NAME`
-- Ragie: `RAGIE_API_KEY`
+- OpenAI file search: `OPENAI_API_KEY` (server only)
 
 ## Security
 
