@@ -21,16 +21,22 @@ describe("denied mutation (auth boundary)", () => {
     }
   });
 
-  it("retrieveChunks rejects empty idToken", async () => {
-    await expect(retrieveChunks("what is rag?", "")).rejects.toThrow(
-      /authentication required/i
-    );
+  it("retrieveChunks rejects empty idToken without throwing", async () => {
+    const result = await retrieveChunks("what is rag?", "");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.status).toBe(401);
+      expect(result.error.code).toBe("UNAUTHORIZED");
+    }
   });
 
-  it("generateWithChunks rejects empty idToken before calling a model", async () => {
-    await expect(
-      generateWithChunks(["chunk"], "what is rag?", "gpt-4o", "")
-    ).rejects.toThrow(/authentication required/i);
+  it("generateWithChunks rejects empty idToken without throwing", async () => {
+    const result = await generateWithChunks(["chunk"], "what is rag?", "gpt-4o", "");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.status).toBe(401);
+      expect(result.error.message).toMatch(/authentication required/i);
+    }
   });
 
   it("uploadToRagie does not fetch a caller-supplied URL before auth", async () => {

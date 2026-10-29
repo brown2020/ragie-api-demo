@@ -1,20 +1,11 @@
 "use client";
 import { useState } from "react";
-import { retrieveChunks } from "@/actions/retrieveChunks";
+import { retrieveChunks, type RetrievedChunk } from "@/actions/retrieveChunks";
 import { generateWithChunks } from "@/actions/generateActions";
 import { readStreamableValue } from "@ai-sdk/rsc";
 import { useAuthStore } from "@/zustand/useAuthStore";
 import ReactMarkdown from "react-markdown";
 import { getFirebaseIdToken } from "@/firebase/firebaseClient";
-
-type Chunk = {
-  text: string;
-  score: number;
-};
-
-type RetrievalResponse = {
-  scored_chunks: Chunk[];
-};
 
 export default function GenerateContent() {
   const [query, setQuery] = useState<string>("");
@@ -42,9 +33,14 @@ export default function GenerateContent() {
       setGeneratedContent("");
 
       const idToken = await getFirebaseIdToken();
-      const data: RetrievalResponse = await retrieveChunks(query, idToken);
+      const retrieved = await retrieveChunks(query, idToken);
+      if (!retrieved.ok) {
+        setError(retrieved.error.message);
+        return;
+      }
 
-      if (!data.scored_chunks || data.scored_chunks.length === 0) {
+      const chunks: RetrievedChunk[] = retrieved.data.scored_chunks;
+      if (chunks.length === 0) {
         setError(
           "No relevant content found. Please upload some documents first."
         );
@@ -53,14 +49,18 @@ export default function GenerateContent() {
 
       setStatus("Generating...");
 
-      const result = await generateWithChunks(
-        data.scored_chunks.map((chunk) => chunk.text),
+      const generated = await generateWithChunks(
+        chunks.map((chunk) => chunk.text),
         query,
         "gpt-4o",
         idToken
       );
+      if (!generated.ok) {
+        setError(generated.error.message);
+        return;
+      }
 
-      for await (const content of readStreamableValue(result)) {
+      for await (const content of readStreamableValue(generated.data)) {
         if (content) {
           setGeneratedContent(content.trim());
         }

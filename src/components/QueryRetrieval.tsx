@@ -1,21 +1,12 @@
 "use client";
 import { useState } from "react";
-import { retrieveChunks } from "@/actions/retrieveChunks";
+import { retrieveChunks, type RetrievedChunk } from "@/actions/retrieveChunks";
 import { useAuthStore } from "@/zustand/useAuthStore";
 import { getFirebaseIdToken } from "@/firebase/firebaseClient";
 
-type Chunk = {
-  text: string;
-  score: number;
-};
-
-type RetrievalResponse = {
-  scored_chunks: Chunk[];
-};
-
 export default function QueryRetrieval() {
   const [query, setQuery] = useState<string>("");
-  const [retrievedChunks, setRetrievedChunks] = useState<Chunk[]>([]);
+  const [retrievedChunks, setRetrievedChunks] = useState<RetrievedChunk[]>([]);
   const [isRetrieving, setIsRetrieving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const uid = useAuthStore((state) => state.uid);
@@ -35,8 +26,13 @@ export default function QueryRetrieval() {
       setIsRetrieving(true);
       setError(null);
       const idToken = await getFirebaseIdToken();
-      const data: RetrievalResponse = await retrieveChunks(query, idToken);
-      setRetrievedChunks(data.scored_chunks || []);
+      const retrieved = await retrieveChunks(query, idToken);
+      if (!retrieved.ok) {
+        setError(retrieved.error.message);
+        setRetrievedChunks([]);
+        return;
+      }
+      setRetrievedChunks(retrieved.data.scored_chunks);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unknown error occurred");
     } finally {

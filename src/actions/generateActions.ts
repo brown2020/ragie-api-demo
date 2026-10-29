@@ -1,6 +1,6 @@
 "use server";
 
-import { createStreamableValue } from "@ai-sdk/rsc";
+import { createStreamableValue, type StreamableValue } from "@ai-sdk/rsc";
 import { ModelMessage, streamText } from "ai";
 import { createOpenAI, openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
@@ -10,6 +10,7 @@ import { verifyFirebaseIdToken } from "@/firebase/firebaseAdmin";
 import { CREDIT_COSTS } from "@/lib/billing";
 import { withCredits } from "@/lib/credits";
 import { assertChunks, assertQuery } from "@/lib/inputLimits";
+import { type RagieActionResult } from "@/lib/ragie-errors";
 import { RATE_LIMITS, assertRateLimit } from "@/lib/rateLimit";
 
 const fireworks = createOpenAI({
@@ -106,27 +107,70 @@ async function generateResponse(
   return stream.value;
 }
 
-// Function to handle generation using previously retrieved chunks
+function generateFailure(
+  status: number,
+  code: string,
+  message: string
+): RagieActionResult<never> {
+  return { ok: false, error: { status, code, message } };
+}
+
+// Returns a result instead of throwing so a failed Ask does not surface as
+// production React error #441 (a redacted Server Action exception).
 export async function generateWithChunks(
   chunks: string[],
   query: string,
   modelName: string,
   idToken: string
-): Promise<ReturnType<typeof generateResponse>> {
-  const uid = await verifyFirebaseIdToken(idToken);
-  const trimmedQuery = assertQuery(query);
-  const boundedChunks = assertChunks(chunks);
-  assertProviderConfigured(modelName);
-  assertRateLimit(
-    `generate:${uid}`,
-    RATE_LIMITS.generate.limit,
-    RATE_LIMITS.generate.windowMs
-  );
+): Promise<RagieActionResult<StreamableValue<string>>> {
+  try {
+    const uid = await verifyFirebaseIdToken(idToken);
+    const trimmedQuery = assertQuery(query);
+    const boundedChunks = assertChunks(chunks);
+    assertProviderConfigured(modelName);
+    assertRateLimit(
+      `generate:${uid}`,
+      RATE_LIMITS.generate.limit,
+      RATE_LIMITS.generate.windowMs
+    );
 
-  const chunkText = boundedChunks.join("\n");
-  const systemPrompt = SYSTEM_PROMPT_TEMPLATE.replace("{chunks}", chunkText);
+    const chunkText = boundedChunks.join("\n");
+    const systemPrompt = SYSTEM_PROMPT_TEMPLATE.replace("{chunks}", chunkText);
 
-  return withCredits(uid, CREDIT_COSTS.generate, () =>
-    generateResponse(systemPrompt, trimmedQuery, modelName)
-  );
+    const data = await withCredits(uid, CREDIT_COSTS.generate, () =>
+      generateResponse(systemPrompt, trimmedQuery, modelName)
+    );
+    return { ok: true, data };
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      return generateFailure(500, "GENERATE_FAILED", "Could not generate an answer.");
+    }
+    if (error.message === "User authentication required" || error.message === "Invalid Firebase authentication token") {
+      return generateFailure(401, "UNAUTHORIZED", "User authentication required.");
+    }
+    if (error.message === "Firebase Admin Auth is not configured") {
+      return generateFailure(500, "AUTH_NOT_CONFIGURED", "Sign-in verification is not configured.");
+    }
+    if (error.message === "Not enough credits") {
+      return generateFailure(402, "INSUFFICIENT_CREDITS", "Not enough credits.");
+    }
+    if (error.message === "Too many requests. Please try again later.") {
+      return generateFailure(429, "RATE_LIMITED", error.message);
+    }
+    if (error.message === "The selected model is not configured" || error.message.startsWith("Unsupported model name:")) {
+      return generateFailure(500, "MODEL_NOT_CONFIGURED", error.message);
+    }
+    if (
+      error.message === "Query cannot be empty" ||
+      error.message === "Query is too long" ||
+      error.message === "No context chunks provided" ||
+      error.message === "Too many context chunks" ||
+      error.message === "A context chunk is too long" ||
+      error.message === "Invalid context chunk" ||
+      error.message === "Context is too long"
+    ) {
+      return generateFailure(400, "INVALID_INPUT", error.message);
+    }
+    return generateFailure(500, "GENERATE_FAILED", "Could not generate an answer.");
+  }
 }

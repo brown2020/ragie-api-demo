@@ -54,7 +54,7 @@ function extractDetail(json: unknown, fallbackText: string): string | undefined 
 
 function toUserMessage(status: number, detail?: string) {
   if (status === 401) {
-    return "Ragie rejected the API key (401 Unauthorized). Check `RAGIE_API_KEY` in `.env.local`.";
+    return "Ragie rejected the API key (401 Unauthorized). RAGIE_API_KEY is invalid.";
   }
 
   if (status === 403) {
