@@ -8,11 +8,14 @@ import { INPUT_LIMITS } from "@/lib/inputLimits";
 import {
   createOpenAISearchApi,
   ensureVectorStore,
+  IndexProcessingError,
   indexUploadedFile,
   OPENAI_KEY_MISSING_MESSAGE,
   openAIFailure,
   readOpenAIApiKey,
+  reuseIndexedFileId,
 } from "@/lib/openai-search";
+import { indexedFileDocPath, vectorStoreDocPath } from "@/lib/searchPaths";
 import { RATE_LIMITS, assertRateLimit } from "@/lib/rateLimit";
 import {
   assertUploadSize,
@@ -30,13 +33,13 @@ function assertDocumentId(documentId: string): string {
 }
 
 async function savedVectorStoreId(uid: string): Promise<string | null> {
-  const snap = await getAdminDb().doc(`users/${uid}/search/store`).get();
+  const snap = await getAdminDb().doc(vectorStoreDocPath(uid)).get();
   const id = snap.get("vectorStoreId");
   return typeof id === "string" && id.trim() ? id : null;
 }
 
 async function saveVectorStoreId(uid: string, vectorStoreId: string): Promise<void> {
-  await getAdminDb().doc(`users/${uid}/search/store`).set({ vectorStoreId }, { merge: true });
+  await getAdminDb().doc(vectorStoreDocPath(uid)).set({ vectorStoreId }, { merge: true });
 }
 
 export async function indexDocument(
@@ -81,21 +84,28 @@ export async function indexDocument(
     return mapKnownActionError(error) ?? actionFailure(429, "RATE_LIMITED", "Too many requests. Please try again later.");
   }
 
-  if (!readOpenAIApiKey()) {
-    return actionFailure(500, "OPENAI_API_KEY_MISSING", OPENAI_KEY_MISSING_MESSAGE);
-  }
-
   try {
-    return await withCredits(uid, CREDIT_COSTS.upload, async () => {
-      const db = getAdminDb();
-      const docSnap = await db.doc(`users/${uid}/documents/${docId}`).get();
-      if (!docSnap.exists) {
-        throw new Error("FILE_NOT_FOUND");
-      }
-      if (docSnap.get("storagePath") !== storagePath) {
-        throw new Error("Invalid storage path");
-      }
+    const db = getAdminDb();
+    const docSnap = await db.doc(`users/${uid}/documents/${docId}`).get();
+    if (!docSnap.exists) {
+      return actionFailure(404, "FILE_NOT_FOUND", "The file is no longer in storage.");
+    }
+    if (docSnap.get("storagePath") !== storagePath) {
+      return actionFailure(400, "INVALID_STORAGE_PATH", "That file is not in your storage.");
+    }
 
+    const existingFileId = reuseIndexedFileId(
+      (await db.doc(indexedFileDocPath(uid, docId)).get()).data()
+    );
+    if (existingFileId) {
+      return { ok: true, data: { fileId: existingFileId } };
+    }
+
+    if (!readOpenAIApiKey()) {
+      return actionFailure(500, "OPENAI_API_KEY_MISSING", OPENAI_KEY_MISSING_MESSAGE);
+    }
+
+    return await withCredits(uid, CREDIT_COSTS.upload, async () => {
       const apiKey = readOpenAIApiKey();
       if (!apiKey) throw new Error("OPENAI_API_KEY_MISSING");
       const api = createOpenAISearchApi(apiKey);
@@ -125,7 +135,7 @@ export async function indexDocument(
         contentType,
       });
 
-      await db.doc(`users/${uid}/search/files/${docId}`).set({
+      await db.doc(indexedFileDocPath(uid, docId)).set({
         openaiFileId: indexed.fileId,
         vectorStoreId,
         name: safeName,
@@ -142,6 +152,9 @@ export async function indexDocument(
     }
     if (error instanceof Error && error.message === "UNSUPPORTED_MEDIA_TYPE") {
       return actionFailure(415, "UNSUPPORTED_MEDIA_TYPE", "This file type cannot be indexed.");
+    }
+    if (error instanceof IndexProcessingError) {
+      return actionFailure(422, error.code, error.message);
     }
     const providerError = openAIFailure(error);
     if (providerError) {

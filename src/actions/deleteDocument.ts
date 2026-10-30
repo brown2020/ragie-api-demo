@@ -7,7 +7,16 @@ import {
   OPENAI_KEY_MISSING_MESSAGE,
   openAIFailure,
   readOpenAIApiKey,
+  removeIndexedFile,
+  reuseIndexedFileId,
 } from "@/lib/openai-search";
+import { indexedFileDocPath, vectorStoreDocPath } from "@/lib/searchPaths";
+
+function isMissingStorageObject(error: unknown): boolean {
+  if (!error || typeof error !== "object" || !("code" in error)) return false;
+  const code = (error as { code?: unknown }).code;
+  return code === 404 || code === "404";
+}
 
 function assertDocumentId(documentId: string): string {
   const id = documentId?.trim() ?? "";
@@ -40,37 +49,27 @@ export async function deleteDocument(
     const docRef = db.doc(`users/${uid}/documents/${docId}`);
     const docSnap = await docRef.get();
     if (!docSnap.exists) {
-      return actionFailure(404, "FILE_NOT_FOUND", "That document is no longer listed.");
+      return { ok: true, data: { deleted: true } };
     }
 
-    const fileSnap = await db.doc(`users/${uid}/search/files/${docId}`).get();
-    const openaiFileId = fileSnap.get("openaiFileId");
-    const vectorStoreId = fileSnap.get("vectorStoreId");
-    if (typeof openaiFileId === "string" && openaiFileId.trim()) {
+    const fileRef = db.doc(indexedFileDocPath(uid, docId));
+    const fileSnap = await fileRef.get();
+    const openaiFileId = reuseIndexedFileId(fileSnap.data());
+    const storedVectorStoreId = fileSnap.get("vectorStoreId");
+    const vectorStoreId =
+      typeof storedVectorStoreId === "string" && storedVectorStoreId.trim()
+        ? storedVectorStoreId
+        : null;
+    if (openaiFileId) {
       const apiKey = readOpenAIApiKey();
       if (!apiKey) {
         return actionFailure(500, "OPENAI_API_KEY_MISSING", OPENAI_KEY_MISSING_MESSAGE);
       }
-      const api = createOpenAISearchApi(apiKey);
-      if (typeof vectorStoreId === "string" && vectorStoreId.trim()) {
-        try {
-          await api.detachFile(vectorStoreId, openaiFileId);
-        } catch (error) {
-          const providerError = openAIFailure(error);
-          if (providerError) {
-            return actionFailure(providerError.status, providerError.code, providerError.message);
-          }
-        }
-      }
-      try {
-        await api.deleteFile(openaiFileId);
-      } catch (error) {
-        const providerError = openAIFailure(error);
-        if (providerError) {
-          return actionFailure(providerError.status, providerError.code, providerError.message);
-        }
-      }
-      await fileSnap.ref.delete().catch(() => undefined);
+      const savedStoreId = vectorStoreId ?? (await db.doc(vectorStoreDocPath(uid)).get()).get("vectorStoreId");
+      const fallbackStore =
+        typeof savedStoreId === "string" && savedStoreId.trim() ? savedStoreId : null;
+      await removeIndexedFile(createOpenAISearchApi(apiKey), fallbackStore, openaiFileId);
+      await fileRef.delete().catch(() => undefined);
     }
 
     const storagePath = docSnap.get("storagePath");
@@ -78,10 +77,12 @@ export async function deleteDocument(
       try {
         await getAdminBucket().file(storagePath).delete({ ignoreNotFound: true });
       } catch (error) {
-        return (
-          mapKnownActionError(error) ??
-          actionFailure(500, "DELETE_FAILED", "The file could not be removed from storage.")
-        );
+        if (!isMissingStorageObject(error)) {
+          return (
+            mapKnownActionError(error) ??
+            actionFailure(500, "DELETE_FAILED", "The file could not be removed from storage.")
+          );
+        }
       }
     }
 

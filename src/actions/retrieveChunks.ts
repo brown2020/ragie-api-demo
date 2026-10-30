@@ -12,6 +12,7 @@ import {
   readOpenAIApiKey,
 } from "@/lib/openai-search";
 import { RATE_LIMITS, assertRateLimit } from "@/lib/rateLimit";
+import { vectorStoreDocPath } from "@/lib/searchPaths";
 
 export type RetrievedChunk = {
   text: string;
@@ -55,7 +56,7 @@ export async function retrieveChunks(
 
   try {
     return await withCredits(uid, CREDIT_COSTS.retrieve, async () => {
-      const storeSnap = await getAdminDb().doc(`users/${uid}/search/store`).get();
+      const storeSnap = await getAdminDb().doc(vectorStoreDocPath(uid)).get();
       const vectorStoreId = storeSnap.get("vectorStoreId");
       if (typeof vectorStoreId !== "string" || !vectorStoreId.trim()) {
         return { ok: true as const, data: { scored_chunks: [] } };

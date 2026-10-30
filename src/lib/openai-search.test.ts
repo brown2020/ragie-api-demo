@@ -1,21 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
+import OpenAI from "openai";
 import {
   FILE_SEARCH_MODEL,
+  IndexProcessingError,
   OPENAI_KEY_MISSING_MESSAGE,
   buildFileSearchRequest,
   ensureVectorStore,
   indexUploadedFile,
   readOpenAIApiKey,
+  removeIndexedFile,
+  reuseIndexedFileId,
   sourcesFromResponse,
   type SearchApi,
 } from "./openai-search";
+import { indexedFileDocPath, isEvenDocumentPath, vectorStoreDocPath } from "./searchPaths";
 
 function fakeApi(overrides: Partial<SearchApi> = {}): SearchApi {
   return {
     createVectorStore: vi.fn(async () => ({ id: "vs_new" })),
     retrieveVectorStore: vi.fn(async () => ({ id: "vs_old" })),
     uploadFile: vi.fn(async () => ({ id: "file_1" })),
-    attachFile: vi.fn(async () => undefined),
+    attachFile: vi.fn(async () => ({ status: "completed", errorMessage: null })),
     deleteFile: vi.fn(async () => undefined),
     detachFile: vi.fn(async () => undefined),
     search: vi.fn(async () => []),
@@ -111,5 +116,61 @@ describe("openai file search", () => {
       "handbook.pdf",
     ]);
     expect(parsed.sources[0]?.text).toMatch(/Vacation/);
+  });
+
+  it("keeps the file id path even so Firestore can save it", () => {
+    const filePath = indexedFileDocPath("uid-1", "doc-1");
+    const storePath = vectorStoreDocPath("uid-1");
+    expect(filePath).toBe("users/uid-1/searchFiles/doc-1");
+    expect(storePath).toBe("users/uid-1/search/store");
+    expect(isEvenDocumentPath(filePath)).toBe(true);
+    expect(isEvenDocumentPath(storePath)).toBe(true);
+    expect(isEvenDocumentPath("users/uid-1/search/files/doc-1")).toBe(false);
+  });
+
+  it("reuses a saved OpenAI file id instead of indexing again", () => {
+    expect(reuseIndexedFileId({ openaiFileId: " file_9 " })).toBe("file_9");
+    expect(reuseIndexedFileId({ openaiFileId: "  " })).toBeNull();
+    expect(reuseIndexedFileId(null)).toBeNull();
+  });
+
+  it("reports a clear error and deletes the file when processing does not complete", async () => {
+    const api = fakeApi({
+      attachFile: vi.fn(async () => ({
+        status: "failed",
+        errorMessage: "unsupported_file",
+      })),
+    });
+    await expect(
+      indexUploadedFile(api, {
+        vectorStoreId: "vs_1",
+        bytes: new Uint8Array([1]),
+        fileName: "note.txt",
+        contentType: "text/plain",
+      })
+    ).rejects.toBeInstanceOf(IndexProcessingError);
+    expect(api.deleteFile).toHaveBeenCalledWith("file_1");
+  });
+
+  it("treats an already deleted OpenAI file as gone", async () => {
+    const missing = new OpenAI.APIError(404, undefined, "No such file", undefined);
+    const api = fakeApi({
+      detachFile: vi.fn(async () => {
+        throw missing;
+      }),
+      deleteFile: vi.fn(async () => {
+        throw missing;
+      }),
+    });
+    await expect(removeIndexedFile(api, "vs_1", "file_1")).resolves.toBe("already_gone");
+  });
+
+  it("does not hide other OpenAI delete failures", async () => {
+    const api = fakeApi({
+      deleteFile: vi.fn(async () => {
+        throw new OpenAI.APIError(500, undefined, "server error", undefined);
+      }),
+    });
+    await expect(removeIndexedFile(api, null, "file_1")).rejects.toMatchObject({ status: 500 });
   });
 });

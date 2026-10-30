@@ -34,7 +34,10 @@ export type SearchApi = {
     fileName: string;
     contentType: string;
   }): Promise<{ id: string }>;
-  attachFile(vectorStoreId: string, fileId: string): Promise<void>;
+  attachFile(
+    vectorStoreId: string,
+    fileId: string
+  ): Promise<{ status: string; errorMessage?: string | null }>;
   deleteFile(fileId: string): Promise<void>;
   detachFile(vectorStoreId: string, fileId: string): Promise<void>;
   search(vectorStoreId: string, query: string): Promise<SearchChunk[]>;
@@ -146,6 +149,56 @@ export async function ensureVectorStore(
   return created.id;
 }
 
+export class IndexProcessingError extends Error {
+  readonly code = "INDEX_PROCESSING_FAILED";
+
+  constructor(detail?: string | null) {
+    const reason = detail?.trim();
+    super(
+      reason
+        ? `OpenAI could not index this document: ${reason}`
+        : "OpenAI could not finish indexing this document."
+    );
+    this.name = "IndexProcessingError";
+  }
+}
+
+export function reuseIndexedFileId(existing: unknown): string | null {
+  if (!existing || typeof existing !== "object") return null;
+  const id = (existing as { openaiFileId?: unknown }).openaiFileId;
+  return typeof id === "string" && id.trim() ? id.trim() : null;
+}
+
+export function isMissingOpenAIResource(error: unknown): boolean {
+  return error instanceof OpenAI.APIError && error.status === 404;
+}
+
+/** Detach and delete an indexed file. A 404 means it is already gone. */
+export async function removeIndexedFile(
+  api: Pick<SearchApi, "detachFile" | "deleteFile">,
+  vectorStoreId: string | null,
+  fileId: string
+): Promise<"removed" | "already_gone"> {
+  let alreadyGone = false;
+  const tolerateMissing = async (run: () => Promise<void>) => {
+    try {
+      await run();
+    } catch (error) {
+      if (isMissingOpenAIResource(error)) {
+        alreadyGone = true;
+        return;
+      }
+      throw error;
+    }
+  };
+
+  if (vectorStoreId) {
+    await tolerateMissing(() => api.detachFile(vectorStoreId, fileId));
+  }
+  await tolerateMissing(() => api.deleteFile(fileId));
+  return alreadyGone ? "already_gone" : "removed";
+}
+
 export async function indexUploadedFile(
   api: SearchApi,
   input: {
@@ -157,7 +210,10 @@ export async function indexUploadedFile(
 ): Promise<{ fileId: string }> {
   const uploaded = await api.uploadFile(input);
   try {
-    await api.attachFile(input.vectorStoreId, uploaded.id);
+    const attached = await api.attachFile(input.vectorStoreId, uploaded.id);
+    if (attached.status !== "completed") {
+      throw new IndexProcessingError(attached.errorMessage);
+    }
   } catch (error) {
     await api.deleteFile(uploaded.id).catch(() => undefined);
     throw error;
@@ -185,6 +241,19 @@ export function openAIFailure(error: unknown): {
         message: "OpenAI rate-limited this request. Please retry in a moment.",
       };
     }
+    if (error.status === 404) {
+      return {
+        status: 404,
+        code: "OPENAI_NOT_FOUND",
+        message: "OpenAI could not find that file or vector store.",
+      };
+    }
+    const status = typeof error.status === "number" ? error.status : 502;
+    return {
+      status: status >= 400 && status < 600 ? status : 502,
+      code: "OPENAI_REQUEST_FAILED",
+      message: `OpenAI could not complete the request (${status}).`,
+    };
   }
   return null;
 }
@@ -222,7 +291,13 @@ export function createOpenAISearchApi(apiKey: string): SearchApi {
       return { id: created.id };
     },
     async attachFile(vectorStoreId, fileId) {
-      await client.vectorStores.files.create(vectorStoreId, { file_id: fileId });
+      const attached = await client.vectorStores.files.createAndPoll(vectorStoreId, {
+        file_id: fileId,
+      });
+      return {
+        status: attached.status,
+        errorMessage: attached.last_error?.message ?? null,
+      };
     },
     async deleteFile(fileId) {
       await client.files.delete(fileId);

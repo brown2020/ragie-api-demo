@@ -13,6 +13,7 @@ import {
   type SearchSource,
 } from "@/lib/openai-search";
 import { RATE_LIMITS, assertRateLimit } from "@/lib/rateLimit";
+import { vectorStoreDocPath } from "@/lib/searchPaths";
 
 export type AskPayload = {
   answer: string;
@@ -51,7 +52,7 @@ export async function askDocuments(
 
   try {
     return await withCredits(uid, CREDIT_COSTS.generate, async () => {
-      const storeSnap = await getAdminDb().doc(`users/${uid}/search/store`).get();
+      const storeSnap = await getAdminDb().doc(vectorStoreDocPath(uid)).get();
       const vectorStoreId = storeSnap.get("vectorStoreId");
       if (typeof vectorStoreId !== "string" || !vectorStoreId.trim()) {
         throw new Error("NO_INDEXED_DOCUMENTS");

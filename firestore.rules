@@ -23,8 +23,11 @@ rules_version = '2';
 //   uploadedToRagie: bool (indexed flag; name kept for deployed rules)
 //   createdAt: timestamp (optional)
 //
-// users/{uid}/search/store and users/{uid}/search/files/{documentId}
-//   server-only OpenAI vector store id and file ids. Clients cannot write them.
+// users/{uid}/search/store
+//   server-only vector store id. Four path segments so Admin doc() accepts it.
+// users/{uid}/searchFiles/{documentId}
+//   server-only OpenAI file id. Clients cannot write either path.
+//   users/{uid}/search/files/{documentId} is not a document path (five segments).
 //
 // ===============================================================
 

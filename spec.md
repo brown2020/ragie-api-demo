@@ -60,18 +60,18 @@ The dashboard always calls `gpt-4o`.
 
 Allowed types: PDF, `text/plain`, `text/markdown`, `text/csv`, DOC, DOCX, XLSX, PPTX. HTML and SVG are rejected. Max size is 32 MB. File names are sanitized and capped at 200 characters.
 
-Storage objects use `users/{uid}/documents/{uuid}-{sanitizedName}` and `Content-Disposition: attachment`. Firestore document creates require `storagePath`. Client updates may change `uploadedToRagie` only. That boolean is the indexed flag kept so existing security rules still accept the client write. The OpenAI file id and vector store id live under `users/{uid}/search/`, which clients cannot write.
+Storage objects use `users/{uid}/documents/{uuid}-{sanitizedName}` and `Content-Disposition: attachment`. Firestore document creates require `storagePath`. Client updates may change `uploadedToRagie` only. That boolean is the indexed flag kept so existing security rules still accept the client write. The vector store id is stored at `users/{uid}/search/store`. The OpenAI file id is stored at `users/{uid}/searchFiles/{documentId}`. Both are even document paths and are outside the client-writable rules, so only the Admin SDK writes them. Upload does not index. Indexing again when a file id is already saved returns that id and does not upload a second copy.
 
 `indexDocument`:
 
 - Authenticates first.
 - Accepts a storage path or an `https` Firebase download URL whose bucket matches `NEXT_PUBLIC_FIREBASE_STORAGEBUCKET` and whose object path is under `users/{uid}/documents/`. It never `fetch`es the URL.
-- Downloads bytes with the Admin bucket, checks existence, size, and content type, uploads the file with the OpenAI Files API, and attaches it to the user's vector store.
+- Downloads bytes with the Admin bucket, checks existence, size, and content type, uploads the file with the OpenAI Files API, attaches it to the user's vector store, and waits until processing completes. A failed or cancelled file is removed and returned as `INDEX_PROCESSING_FAILED`.
 - Charges 5 credits. A missing `OPENAI_API_KEY` returns a clear error before the provider call.
 
 `retrieveChunks` authenticates, caps the query at 4,000 characters, rate-limits, charges 1 credit, and searches that vector store.
 
-`askDocuments` authenticates, rate-limits, charges 10 credits, and calls the Responses API with `file_search` and model `gpt-4o`. The result includes the answer and file citations. `deleteDocument` removes the OpenAI file, the Storage object, and the Firestore document.
+`askDocuments` authenticates, rate-limits, charges 10 credits, and calls the Responses API with `file_search` and model `gpt-4o`. The result includes the answer and file citations. `deleteDocument` removes the OpenAI file, the Storage object, and the Firestore document. A missing OpenAI file, Storage object, or Firestore document is treated as already gone.
 
 ## Generation
 
