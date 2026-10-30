@@ -1,4 +1,5 @@
 export { indexDocument } from "./indexDocument";
+export { indexStatus } from "./indexStatus";
 export { deleteDocument } from "./deleteDocument";
 export { retrieveChunks } from "./retrieveChunks";
 export { askDocuments } from "./askDocuments";

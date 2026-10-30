@@ -3,6 +3,7 @@ import { askDocuments } from "./askDocuments";
 import { deleteDocument } from "./deleteDocument";
 import { generateWithChunks } from "./generateActions";
 import { indexDocument } from "./indexDocument";
+import { indexStatus } from "./indexStatus";
 import { retrieveChunks } from "./retrieveChunks";
 
 /**
@@ -33,6 +34,15 @@ describe("denied mutation (auth boundary)", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.status).toBe(401);
+    }
+  });
+
+  it("indexStatus rejects an empty id token", async () => {
+    const result = await indexStatus("doc-1", "");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.status).toBe(401);
+      expect(result.error.code).toBe("UNAUTHORIZED");
     }
   });
 

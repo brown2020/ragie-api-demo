@@ -8,8 +8,10 @@ import {
   ensureVectorStore,
   indexUploadedFile,
   readOpenAIApiKey,
+  fileIdsToReplace,
   removeIndexedFile,
-  reuseIndexedFileId,
+  replaceIndexedCopies,
+  savedOpenAIFileId,
   sourcesFromResponse,
   type SearchApi,
 } from "./openai-search";
@@ -23,6 +25,8 @@ function fakeApi(overrides: Partial<SearchApi> = {}): SearchApi {
     attachFile: vi.fn(async () => ({ status: "completed", errorMessage: null })),
     deleteFile: vi.fn(async () => undefined),
     detachFile: vi.fn(async () => undefined),
+    listStoreFiles: vi.fn(async () => []),
+    fileStatus: vi.fn(async () => ({ status: "completed", errorMessage: null })),
     search: vi.fn(async () => []),
     ask: vi.fn(async () => ({ answer: "", sources: [] })),
     ...overrides,
@@ -128,10 +132,59 @@ describe("openai file search", () => {
     expect(isEvenDocumentPath("users/uid-1/search/files/doc-1")).toBe(false);
   });
 
-  it("reuses a saved OpenAI file id instead of indexing again", () => {
-    expect(reuseIndexedFileId({ openaiFileId: " file_9 " })).toBe("file_9");
-    expect(reuseIndexedFileId({ openaiFileId: "  " })).toBeNull();
-    expect(reuseIndexedFileId(null)).toBeNull();
+  it("reads a saved OpenAI file id so a re-index can remove that copy", () => {
+    expect(savedOpenAIFileId({ openaiFileId: " file_9 " })).toBe("file_9");
+    expect(savedOpenAIFileId({ openaiFileId: "  " })).toBeNull();
+    expect(savedOpenAIFileId(null)).toBeNull();
+  });
+
+  it("returns while processing is still in progress and keeps the file", async () => {
+    const api = fakeApi({
+      attachFile: vi.fn(async () => ({ status: "in_progress", errorMessage: null })),
+    });
+    await expect(
+      indexUploadedFile(api, {
+        vectorStoreId: "vs_1",
+        bytes: new Uint8Array([1]),
+        fileName: "note.txt",
+        contentType: "text/plain",
+        documentId: "doc-1",
+      })
+    ).resolves.toEqual({ fileId: "file_1", status: "in_progress" });
+    expect(api.deleteFile).not.toHaveBeenCalled();
+    expect(api.attachFile).toHaveBeenCalledWith("vs_1", "file_1", {
+      documentId: "doc-1",
+      fileName: "note.txt",
+    });
+  });
+
+  it("removes the saved copy and untagged duplicates before attaching again", () => {
+    const ids = fileIdsToReplace(
+      [
+        { fileId: "file_old", filename: "note.txt", status: "completed" },
+        { fileId: "file_dup", filename: "note.txt", status: "completed" },
+        { fileId: "file_other", filename: "note.txt", documentId: "doc-2", status: "completed" },
+        { fileId: "file_keep", filename: "other.txt", documentId: "doc-2", status: "completed" },
+      ],
+      { documentId: "doc-1", fileName: "note.txt", savedFileId: "file_saved" }
+    );
+    expect(ids).toEqual(["file_saved", "file_old", "file_dup"]);
+  });
+
+  it("deletes those copies before a new file is attached", async () => {
+    const api = fakeApi({
+      listStoreFiles: vi.fn(async () => [
+        { fileId: "file_old", filename: "note.txt", status: "completed" },
+      ]),
+    });
+    await replaceIndexedCopies(api, "vs_1", {
+      documentId: "doc-1",
+      fileName: "note.txt",
+      savedFileId: "file_saved",
+    });
+    expect(api.detachFile).toHaveBeenCalledWith("vs_1", "file_saved");
+    expect(api.deleteFile).toHaveBeenCalledWith("file_old");
+    expect(api.uploadFile).not.toHaveBeenCalled();
   });
 
   it("reports a clear error and deletes the file when processing does not complete", async () => {

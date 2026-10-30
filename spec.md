@@ -66,12 +66,13 @@ Storage objects use `users/{uid}/documents/{uuid}-{sanitizedName}` and `Content-
 
 - Authenticates first.
 - Accepts a storage path or an `https` Firebase download URL whose bucket matches `NEXT_PUBLIC_FIREBASE_STORAGEBUCKET` and whose object path is under `users/{uid}/documents/`. It never `fetch`es the URL.
-- Downloads bytes with the Admin bucket, checks existence, size, and content type, uploads the file with the OpenAI Files API, attaches it to the user's vector store, and waits until processing completes. A failed or cancelled file is removed and returned as `INDEX_PROCESSING_FAILED`.
+- Downloads bytes with the Admin bucket, checks existence, size, and content type, uploads the file with the OpenAI Files API, and attaches it without waiting for vector-store processing. Any saved copy, any copy tagged with this document, and any untagged copy with the same file name is removed first. The dashboard polls `indexStatus` until the file is `completed` or `failed`. A failed or cancelled file is removed and returned as `INDEX_PROCESSING_FAILED`.
+- `POST /api/search/index`, `/api/search/status`, and `/api/search/ask` return JSON. The dashboard page and those routes set `maxDuration` to 60 seconds. The platform default of 15 seconds was killing the first cold call and leaving the attached file in place.
 - Charges 5 credits. A missing `OPENAI_API_KEY` returns a clear error before the provider call.
 
 `retrieveChunks` authenticates, caps the query at 4,000 characters, rate-limits, charges 1 credit, and searches that vector store.
 
-`askDocuments` authenticates, rate-limits, charges 10 credits, and calls the Responses API with `file_search` and model `gpt-4o`. The result includes the answer and file citations. `deleteDocument` removes the OpenAI file, the Storage object, and the Firestore document. A missing OpenAI file, Storage object, or Firestore document is treated as already gone.
+`askDocuments` authenticates, rate-limits, charges 10 credits, and calls the Responses API with `file_search` and model `gpt-4o`. The result includes the answer and file citations. The dashboard calls it through `POST /api/search/ask`. `deleteDocument` removes the OpenAI file, the Storage object, and the Firestore document. A missing OpenAI file, Storage object, or Firestore document is treated as already gone. Re-index uses the same index action, which removes the previous copy before attaching.
 
 ## Generation
 

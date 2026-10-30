@@ -19,6 +19,15 @@ export type SearchSource = {
   score?: number;
 };
 
+export type IndexedCopy = {
+  fileId: string;
+  filename: string;
+  documentId?: string;
+  status: string;
+};
+
+export type IndexState = "in_progress" | "completed";
+
 export type SearchChunk = {
   text: string;
   score: number;
@@ -36,10 +45,16 @@ export type SearchApi = {
   }): Promise<{ id: string }>;
   attachFile(
     vectorStoreId: string,
-    fileId: string
+    fileId: string,
+    attributes?: { documentId: string; fileName: string }
   ): Promise<{ status: string; errorMessage?: string | null }>;
   deleteFile(fileId: string): Promise<void>;
   detachFile(vectorStoreId: string, fileId: string): Promise<void>;
+  listStoreFiles(vectorStoreId: string): Promise<IndexedCopy[]>;
+  fileStatus(
+    vectorStoreId: string,
+    fileId: string
+  ): Promise<{ status: string; errorMessage?: string | null } | null>;
   search(vectorStoreId: string, query: string): Promise<SearchChunk[]>;
   ask(
     vectorStoreId: string,
@@ -163,7 +178,7 @@ export class IndexProcessingError extends Error {
   }
 }
 
-export function reuseIndexedFileId(existing: unknown): string | null {
+export function savedOpenAIFileId(existing: unknown): string | null {
   if (!existing || typeof existing !== "object") return null;
   const id = (existing as { openaiFileId?: unknown }).openaiFileId;
   return typeof id === "string" && id.trim() ? id.trim() : null;
@@ -199,6 +214,44 @@ export async function removeIndexedFile(
   return alreadyGone ? "already_gone" : "removed";
 }
 
+/**
+ * File ids to delete before a new attach. Includes the saved id, any copy
+ * tagged with this document, and untagged copies with the same file name
+ * (left behind when a 15s function timeout killed the request after attach).
+ */
+export function fileIdsToReplace(
+  files: IndexedCopy[],
+  target: { documentId: string; fileName: string; savedFileId?: string | null }
+): string[] {
+  const ids = new Set<string>();
+  const saved = target.savedFileId?.trim();
+  if (saved) ids.add(saved);
+  const name = target.fileName.trim();
+  for (const file of files) {
+    if (!file.fileId) continue;
+    if (file.documentId && file.documentId === target.documentId) {
+      ids.add(file.fileId);
+      continue;
+    }
+    if (file.documentId && file.documentId !== target.documentId) continue;
+    if (name && file.filename === name) ids.add(file.fileId);
+  }
+  return [...ids];
+}
+
+export async function replaceIndexedCopies(
+  api: Pick<SearchApi, "listStoreFiles" | "detachFile" | "deleteFile">,
+  vectorStoreId: string,
+  target: { documentId: string; fileName: string; savedFileId?: string | null }
+): Promise<string[]> {
+  const listed = await api.listStoreFiles(vectorStoreId);
+  const ids = fileIdsToReplace(listed, target);
+  for (const fileId of ids) {
+    await removeIndexedFile(api, vectorStoreId, fileId);
+  }
+  return ids;
+}
+
 export async function indexUploadedFile(
   api: SearchApi,
   input: {
@@ -206,19 +259,29 @@ export async function indexUploadedFile(
     bytes: Uint8Array;
     fileName: string;
     contentType: string;
+    documentId?: string;
   }
-): Promise<{ fileId: string }> {
+): Promise<{ fileId: string; status: IndexState }> {
   const uploaded = await api.uploadFile(input);
   try {
-    const attached = await api.attachFile(input.vectorStoreId, uploaded.id);
-    if (attached.status !== "completed") {
+    const attached = await api.attachFile(
+      input.vectorStoreId,
+      uploaded.id,
+      input.documentId
+        ? { documentId: input.documentId, fileName: input.fileName }
+        : undefined
+    );
+    if (attached.status === "failed" || attached.status === "cancelled") {
       throw new IndexProcessingError(attached.errorMessage);
     }
+    return {
+      fileId: uploaded.id,
+      status: attached.status === "completed" ? "completed" : "in_progress",
+    };
   } catch (error) {
     await api.deleteFile(uploaded.id).catch(() => undefined);
     throw error;
   }
-  return { fileId: uploaded.id };
 }
 
 export function openAIFailure(error: unknown): {
@@ -290,9 +353,14 @@ export function createOpenAISearchApi(apiKey: string): SearchApi {
       });
       return { id: created.id };
     },
-    async attachFile(vectorStoreId, fileId) {
-      const attached = await client.vectorStores.files.createAndPoll(vectorStoreId, {
+    async attachFile(vectorStoreId, fileId, attributes) {
+      // create() returns while processing is still in_progress. Waiting here
+      // exceeded Vercel's 15s default and the platform responded with a non-JSON page.
+      const attached = await client.vectorStores.files.create(vectorStoreId, {
         file_id: fileId,
+        attributes: attributes
+          ? { documentId: attributes.documentId, fileName: attributes.fileName }
+          : undefined,
       });
       return {
         status: attached.status,
@@ -304,6 +372,43 @@ export function createOpenAISearchApi(apiKey: string): SearchApi {
     },
     async detachFile(vectorStoreId, fileId) {
       await client.vectorStores.files.delete(fileId, { vector_store_id: vectorStoreId });
+    },
+    async listStoreFiles(vectorStoreId) {
+      const page = await client.vectorStores.files.list(vectorStoreId, { limit: 100 });
+      const copies: IndexedCopy[] = [];
+      for (const file of page.data) {
+        const documentId =
+          file.attributes && typeof file.attributes.documentId === "string"
+            ? file.attributes.documentId
+            : undefined;
+        let filename = "";
+        if (!documentId) {
+          try {
+            const meta = await client.files.retrieve(file.id);
+            filename = meta.filename ?? "";
+          } catch (error) {
+            if (!isMissingOpenAIResource(error)) throw error;
+          }
+        } else if (file.attributes && typeof file.attributes.fileName === "string") {
+          filename = file.attributes.fileName;
+        }
+        copies.push({ fileId: file.id, filename, documentId, status: file.status });
+      }
+      return copies;
+    },
+    async fileStatus(vectorStoreId, fileId) {
+      try {
+        const file = await client.vectorStores.files.retrieve(fileId, {
+          vector_store_id: vectorStoreId,
+        });
+        return {
+          status: file.status,
+          errorMessage: file.last_error?.message ?? null,
+        };
+      } catch (error) {
+        if (error instanceof OpenAI.APIError && error.status === 404) return null;
+        throw error;
+      }
     },
     async search(vectorStoreId, query) {
       const page = await client.vectorStores.search(vectorStoreId, { query });

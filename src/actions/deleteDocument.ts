@@ -8,7 +8,7 @@ import {
   openAIFailure,
   readOpenAIApiKey,
   removeIndexedFile,
-  reuseIndexedFileId,
+  savedOpenAIFileId,
 } from "@/lib/openai-search";
 import { indexedFileDocPath, vectorStoreDocPath } from "@/lib/searchPaths";
 
@@ -54,7 +54,7 @@ export async function deleteDocument(
 
     const fileRef = db.doc(indexedFileDocPath(uid, docId));
     const fileSnap = await fileRef.get();
-    const openaiFileId = reuseIndexedFileId(fileSnap.data());
+    const openaiFileId = savedOpenAIFileId(fileSnap.data());
     const storedVectorStoreId = fileSnap.get("vectorStoreId");
     const vectorStoreId =
       typeof storedVectorStoreId === "string" && storedVectorStoreId.trim()

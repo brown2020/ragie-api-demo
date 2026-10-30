@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { askDocuments } from "@/actions/askDocuments";
+import { postAction } from "@/lib/actionResponse";
 import type { SearchSource } from "@/lib/openai-search";
 import { useAuthStore } from "@/zustand/useAuthStore";
 import ReactMarkdown from "react-markdown";
@@ -34,7 +34,10 @@ export default function GenerateContent() {
       setSources([]);
 
       const idToken = await getFirebaseIdToken();
-      const answer = await askDocuments(query, idToken);
+      const answer = await postAction<{ answer: string; sources: SearchSource[] }>(
+        "/api/search/ask",
+        { query, idToken }
+      );
       if (!answer.ok) {
         setError(answer.error.message);
         return;

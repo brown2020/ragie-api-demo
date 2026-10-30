@@ -24,7 +24,7 @@ import {
 } from "@/firebase/firebaseClient";
 import { Trash2, UploadIcon } from "lucide-react";
 import { deleteDocument } from "@/actions/deleteDocument";
-import { indexDocument } from "@/actions/indexDocument";
+import { pollIndex, postAction } from "@/lib/actionResponse";
 import { INPUT_LIMITS } from "@/lib/inputLimits";
 import {
   contentTypeForFileName,
@@ -191,25 +191,44 @@ export default function FileManagement() {
 
     setIndexing((prev) => ({ ...prev, [document.id]: true }));
 
-    try {
-      const idToken = await getFirebaseIdToken();
-      const fileRef = document.storagePath || document.url;
-      const result = await indexDocument(fileRef, document.name, document.id, idToken);
-      if (!result.ok) {
-        toast.error(result.error.message);
-        return;
-      }
-
+    const markIndexed = async (indexed: boolean) => {
       if (hasClientConfig && db) {
         await updateDoc(doc(db, `users/${uid}/documents`, document.id), {
-          uploadedToRagie: true,
+          uploadedToRagie: indexed,
         });
       }
       setDocuments((prev) =>
-        prev.map((d) =>
-          d.id === document.id ? { ...d, uploadedToRagie: true } : d
+        prev.map((item) =>
+          item.id === document.id ? { ...item, uploadedToRagie: indexed } : item
         )
       );
+    };
+
+    try {
+      const idToken = await getFirebaseIdToken();
+      const fileRef = document.storagePath || document.url;
+      const started = await postAction<{ fileId: string; status: "in_progress" | "completed" }>(
+        "/api/search/index",
+        { fileRef, fileName: document.name, documentId: document.id, idToken }
+      );
+      if (!started.ok) {
+        if (started.error.code !== "UNEXPECTED_RESPONSE" && started.error.code !== "NETWORK_ERROR") {
+          await markIndexed(false);
+        }
+        toast.error(started.error.message);
+        return;
+      }
+
+      const finished = await pollIndex(document.id, idToken, started.data.status);
+      if (!finished.ok) {
+        if (finished.error.code !== "UNEXPECTED_RESPONSE" && finished.error.code !== "NETWORK_ERROR") {
+          await markIndexed(false);
+        }
+        toast.error(finished.error.message);
+        return;
+      }
+
+      await markIndexed(true);
       toast.success("Document indexed for search");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error indexing the document.");
@@ -310,21 +329,26 @@ export default function FileManagement() {
                 ) : (
                   <span className="text-gray-800">{document.name}</span>
                 )}
-                {document.uploadedToRagie ? (
+                {document.uploadedToRagie && (
                   <span className="text-sm text-green-700">Indexed</span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleIndex(document)}
-                    disabled={indexing[document.id] || deleting[document.id]}
-                    className={`flex items-center space-x-2 text-blue-700 px-3 py-1 rounded border border-blue-700 cursor-pointer hover:bg-blue-50 hover:shadow-sm transition-all duration-200 ${
-                      indexing[document.id] ? "opacity-60 cursor-not-allowed" : ""
-                    }`}
-                  >
-                    <UploadIcon className="w-4 h-4" />
-                    <span>{indexing[document.id] ? "Indexing..." : "Index for search"}</span>
-                  </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => handleIndex(document)}
+                  disabled={indexing[document.id] || deleting[document.id]}
+                  className={`flex items-center space-x-2 text-blue-700 px-3 py-1 rounded border border-blue-700 cursor-pointer hover:bg-blue-50 hover:shadow-sm transition-all duration-200 ${
+                    indexing[document.id] ? "opacity-60 cursor-not-allowed" : ""
+                  }`}
+                >
+                  <UploadIcon className="w-4 h-4" />
+                  <span>
+                    {indexing[document.id]
+                      ? "Indexing..."
+                      : document.uploadedToRagie
+                        ? "Re-index"
+                        : "Index for search"}
+                  </span>
+                </button>
                 <button
                   type="button"
                   onClick={() => handleDelete(document)}

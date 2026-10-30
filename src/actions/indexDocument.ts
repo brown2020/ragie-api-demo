@@ -13,7 +13,10 @@ import {
   OPENAI_KEY_MISSING_MESSAGE,
   openAIFailure,
   readOpenAIApiKey,
-  reuseIndexedFileId,
+  removeIndexedFile,
+  replaceIndexedCopies,
+  savedOpenAIFileId,
+  type IndexState,
 } from "@/lib/openai-search";
 import { indexedFileDocPath, vectorStoreDocPath } from "@/lib/searchPaths";
 import { RATE_LIMITS, assertRateLimit } from "@/lib/rateLimit";
@@ -47,7 +50,7 @@ export async function indexDocument(
   fileName: string,
   documentId: string,
   idToken: string
-): Promise<ActionResult<{ fileId: string }>> {
+): Promise<ActionResult<{ fileId: string; status: IndexState }>> {
   let uid: string;
   try {
     uid = await verifyFirebaseIdToken(idToken);
@@ -94,13 +97,6 @@ export async function indexDocument(
       return actionFailure(400, "INVALID_STORAGE_PATH", "That file is not in your storage.");
     }
 
-    const existingFileId = reuseIndexedFileId(
-      (await db.doc(indexedFileDocPath(uid, docId)).get()).data()
-    );
-    if (existingFileId) {
-      return { ok: true, data: { fileId: existingFileId } };
-    }
-
     if (!readOpenAIApiKey()) {
       return actionFailure(500, "OPENAI_API_KEY_MISSING", OPENAI_KEY_MISSING_MESSAGE);
     }
@@ -128,20 +124,36 @@ export async function indexDocument(
       const vectorStoreId = await ensureVectorStore(api, await savedVectorStoreId(uid), uid);
       await saveVectorStoreId(uid, vectorStoreId);
 
+      const mappingRef = db.doc(indexedFileDocPath(uid, docId));
+      const savedFileId = savedOpenAIFileId((await mappingRef.get()).data());
+      await replaceIndexedCopies(api, vectorStoreId, {
+        documentId: docId,
+        fileName: safeName,
+        savedFileId,
+      });
+
       const indexed = await indexUploadedFile(api, {
         vectorStoreId,
         bytes: new Uint8Array(buffer),
         fileName: safeName,
         contentType,
+        documentId: docId,
       });
 
-      await db.doc(indexedFileDocPath(uid, docId)).set({
-        openaiFileId: indexed.fileId,
-        vectorStoreId,
-        name: safeName,
-      });
+      try {
+        await mappingRef.set({
+          openaiFileId: indexed.fileId,
+          vectorStoreId,
+          name: safeName,
+          status: indexed.status,
+          billed: true,
+        });
+      } catch (error) {
+        await removeIndexedFile(api, vectorStoreId, indexed.fileId).catch(() => undefined);
+        throw error;
+      }
 
-      return { ok: true as const, data: { fileId: indexed.fileId } };
+      return { ok: true as const, data: { fileId: indexed.fileId, status: indexed.status } };
     });
   } catch (error) {
     if (error instanceof Error && error.message === "OPENAI_API_KEY_MISSING") {
