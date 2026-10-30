@@ -1,4 +1,5 @@
 import OpenAI, { toFile } from "openai";
+import { sanitizeFileName } from "./storageAccess";
 
 /**
  * The dashboard already calls this model. File search reuses it for the
@@ -24,6 +25,14 @@ export type IndexedCopy = {
   filename: string;
   documentId?: string;
   status: string;
+  /** OpenAI file purpose. Absent when the file record is already gone. */
+  purpose?: string;
+};
+
+export type LiveDocument = {
+  id: string;
+  names: string[];
+  fileId?: string | null;
 };
 
 export type IndexState = "in_progress" | "completed";
@@ -37,7 +46,9 @@ export type SearchChunk = {
 
 export type SearchApi = {
   createVectorStore(uid: string): Promise<{ id: string }>;
-  retrieveVectorStore(id: string): Promise<{ id: string } | null>;
+  retrieveVectorStore(
+    id: string
+  ): Promise<{ id: string; name?: string; userId?: string } | null>;
   uploadFile(file: {
     bytes: Uint8Array;
     fileName: string;
@@ -219,6 +230,81 @@ export async function removeIndexedFile(
  * tagged with this document, and untagged copies with the same file name
  * (left behind when a 15s function timeout killed the request after attach).
  */
+export function documentMatchNames(name: string): string[] {
+  const raw = name.trim();
+  const safe = sanitizeFileName(raw);
+  return [...new Set([raw, safe].filter((value) => value.length > 0))];
+}
+
+/** Every store copy of one document: saved id, document tag, or the same filename. */
+export function fileIdsForDocument(
+  files: IndexedCopy[],
+  target: { documentId: string; names: string[]; savedFileId?: string | null }
+): string[] {
+  const ids = new Set<string>();
+  const saved = target.savedFileId?.trim();
+  if (saved) ids.add(saved);
+  const names = new Set(target.names.map((name) => name.trim()).filter(Boolean));
+  for (const file of files) {
+    if (!file.fileId) continue;
+    if (file.documentId && file.documentId === target.documentId) ids.add(file.fileId);
+    if (file.filename && names.has(file.filename)) ids.add(file.fileId);
+  }
+  return [...ids];
+}
+
+/**
+ * Files in this app's vector store that do not belong to a current document.
+ * Files with a non-assistants purpose were not uploaded by this app and are kept.
+ */
+export function orphanCopies(files: IndexedCopy[], docs: LiveDocument[]): IndexedCopy[] {
+  const docIds = new Set(docs.map((doc) => doc.id));
+  const names = new Set(docs.flatMap((doc) => doc.names.map((name) => name.trim()).filter(Boolean)));
+  const savedIds = new Set(
+    docs.map((doc) => doc.fileId?.trim()).filter((id): id is string => Boolean(id))
+  );
+  return files.filter((file) => {
+    if (file.purpose && file.purpose !== "assistants") return false;
+    if (savedIds.has(file.fileId)) return false;
+    if (file.documentId && docIds.has(file.documentId)) return false;
+    if (file.filename && names.has(file.filename)) return false;
+    return true;
+  });
+}
+
+export function isAppVectorStore(
+  store: { name?: string; userId?: string } | null,
+  uid: string
+): boolean {
+  if (!store) return false;
+  return store.userId === uid && store.name === `user-${uid}`;
+}
+
+export function sourcesForLiveDocuments(
+  sources: SearchSource[],
+  docs: LiveDocument[]
+): SearchSource[] {
+  const names = new Set(docs.flatMap((doc) => doc.names.map((name) => name.trim()).filter(Boolean)));
+  const fileIds = new Set(
+    docs.map((doc) => doc.fileId?.trim()).filter((id): id is string => Boolean(id))
+  );
+  return sources.filter((source) => {
+    if (source.fileId && fileIds.has(source.fileId)) return true;
+    const filename = source.filename?.trim();
+    return Boolean(filename && filename !== "Document" && names.has(filename));
+  });
+}
+
+export function stripDroppedFilenames(answer: string, dropped: SearchSource[]): string {
+  let text = answer;
+  for (const source of dropped) {
+    const filename = source.filename?.trim();
+    if (!filename || filename === "Document") continue;
+    text = text.split(filename).join("");
+  }
+  return text.replace(/[ \t]{2,}/g, " ").replace(/\s+([.,;:])/g, "$1").trim();
+}
+
 export function fileIdsToReplace(
   files: IndexedCopy[],
   target: { documentId: string; fileName: string; savedFileId?: string | null }
@@ -335,7 +421,12 @@ export function createOpenAISearchApi(apiKey: string): SearchApi {
     async retrieveVectorStore(id) {
       try {
         const store = await client.vectorStores.retrieve(id);
-        return { id: store.id };
+        const userId = store.metadata?.userId;
+        return {
+          id: store.id,
+          name: store.name,
+          userId: typeof userId === "string" ? userId : undefined,
+        };
       } catch (error) {
         if (error instanceof OpenAI.APIError && error.status === 404) return null;
         throw error;
@@ -374,25 +465,26 @@ export function createOpenAISearchApi(apiKey: string): SearchApi {
       await client.vectorStores.files.delete(fileId, { vector_store_id: vectorStoreId });
     },
     async listStoreFiles(vectorStoreId) {
-      const page = await client.vectorStores.files.list(vectorStoreId, { limit: 100 });
       const copies: IndexedCopy[] = [];
-      for (const file of page.data) {
+      for await (const file of client.vectorStores.files.list(vectorStoreId, { limit: 100 })) {
+        if (copies.length >= 200) break;
         const documentId =
           file.attributes && typeof file.attributes.documentId === "string"
             ? file.attributes.documentId
             : undefined;
-        let filename = "";
-        if (!documentId) {
-          try {
-            const meta = await client.files.retrieve(file.id);
-            filename = meta.filename ?? "";
-          } catch (error) {
-            if (!isMissingOpenAIResource(error)) throw error;
-          }
-        } else if (file.attributes && typeof file.attributes.fileName === "string") {
-          filename = file.attributes.fileName;
+        let filename =
+          file.attributes && typeof file.attributes.fileName === "string"
+            ? file.attributes.fileName
+            : "";
+        let purpose: string | undefined = documentId ? "assistants" : undefined;
+        try {
+          const meta = await client.files.retrieve(file.id);
+          filename = meta.filename || filename;
+          purpose = meta.purpose;
+        } catch (error) {
+          if (!isMissingOpenAIResource(error)) throw error;
         }
-        copies.push({ fileId: file.id, filename, documentId, status: file.status });
+        copies.push({ fileId: file.id, filename, documentId, status: file.status, purpose });
       }
       return copies;
     },

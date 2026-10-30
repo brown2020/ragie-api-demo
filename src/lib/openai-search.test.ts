@@ -8,8 +8,14 @@ import {
   ensureVectorStore,
   indexUploadedFile,
   readOpenAIApiKey,
+  documentMatchNames,
+  fileIdsForDocument,
   fileIdsToReplace,
+  isAppVectorStore,
+  orphanCopies,
   removeIndexedFile,
+  sourcesForLiveDocuments,
+  stripDroppedFilenames,
   replaceIndexedCopies,
   savedOpenAIFileId,
   sourcesFromResponse,
@@ -169,6 +175,51 @@ describe("openai file search", () => {
       { documentId: "doc-1", fileName: "note.txt", savedFileId: "file_saved" }
     );
     expect(ids).toEqual(["file_saved", "file_old", "file_dup"]);
+  });
+
+  it("selects every copy of a deleted document, including the same filename", () => {
+    const ids = fileIdsForDocument(
+      [
+        { fileId: "file_saved", filename: "other.txt", documentId: "doc-1", status: "completed", purpose: "assistants" },
+        { fileId: "file_old", filename: "qa-1030a.txt", status: "completed", purpose: "assistants" },
+        { fileId: "file_tagged", filename: "qa-1030a.txt", documentId: "doc-9", status: "completed", purpose: "assistants" },
+        { fileId: "file_keep", filename: "keep.txt", documentId: "doc-2", status: "completed", purpose: "assistants" },
+      ],
+      { documentId: "doc-1", names: documentMatchNames("qa-1030a.txt"), savedFileId: "file_saved" }
+    );
+    expect(ids).toEqual(["file_saved", "file_old", "file_tagged"]);
+  });
+
+  it("treats store files with no current document as orphans and keeps foreign purposes", () => {
+    const orphans = orphanCopies(
+      [
+        { fileId: "gone", filename: "qa-1030a.txt", status: "completed", purpose: "assistants" },
+        { fileId: "live", filename: "keep.txt", documentId: "doc-2", status: "completed", purpose: "assistants" },
+        { fileId: "foreign", filename: "qa-1030a.txt", status: "completed", purpose: "fine-tune" },
+      ],
+      [{ id: "doc-2", names: ["keep.txt"], fileId: "live" }]
+    );
+    expect(orphans.map((file) => file.fileId)).toEqual(["gone"]);
+  });
+
+  it("drops citations that do not belong to a current document", () => {
+    const sources = sourcesForLiveDocuments(
+      [
+        { filename: "qa-1030a.txt", fileId: "file_old", text: "old" },
+        { filename: "keep.txt", fileId: "file_live", text: "current" },
+      ],
+      [{ id: "doc-2", names: ["keep.txt"], fileId: "file_live" }]
+    );
+    expect(sources.map((source) => source.filename)).toEqual(["keep.txt"]);
+    expect(stripDroppedFilenames("See qa-1030a.txt and keep.txt.", [
+      { filename: "qa-1030a.txt", fileId: "file_old" },
+    ])).toBe("See and keep.txt.");
+  });
+
+  it("only treats stores named for that user as this app's store", () => {
+    expect(isAppVectorStore({ name: "user-uid-1", userId: "uid-1" }, "uid-1")).toBe(true);
+    expect(isAppVectorStore({ name: "other", userId: "uid-1" }, "uid-1")).toBe(false);
+    expect(isAppVectorStore(null, "uid-1")).toBe(false);
   });
 
   it("deletes those copies before a new file is attached", async () => {

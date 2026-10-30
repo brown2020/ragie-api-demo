@@ -3,14 +3,13 @@
 import { getAdminBucket, getAdminDb, verifyFirebaseIdToken } from "@/firebase/firebaseAdmin";
 import { actionFailure, mapKnownActionError, type ActionResult } from "@/lib/actionResult";
 import {
-  createOpenAISearchApi,
   OPENAI_KEY_MISSING_MESSAGE,
   openAIFailure,
   readOpenAIApiKey,
-  removeIndexedFile,
   savedOpenAIFileId,
 } from "@/lib/openai-search";
 import { indexedFileDocPath, vectorStoreDocPath } from "@/lib/searchPaths";
+import { removeDocumentFromSearch } from "@/lib/searchMaintenance";
 
 function isMissingStorageObject(error: unknown): boolean {
   if (!error || typeof error !== "object" || !("code" in error)) return false;
@@ -55,20 +54,15 @@ export async function deleteDocument(
     const fileRef = db.doc(indexedFileDocPath(uid, docId));
     const fileSnap = await fileRef.get();
     const openaiFileId = savedOpenAIFileId(fileSnap.data());
-    const storedVectorStoreId = fileSnap.get("vectorStoreId");
-    const vectorStoreId =
-      typeof storedVectorStoreId === "string" && storedVectorStoreId.trim()
-        ? storedVectorStoreId
-        : null;
-    if (openaiFileId) {
-      const apiKey = readOpenAIApiKey();
-      if (!apiKey) {
-        return actionFailure(500, "OPENAI_API_KEY_MISSING", OPENAI_KEY_MISSING_MESSAGE);
-      }
-      const savedStoreId = vectorStoreId ?? (await db.doc(vectorStoreDocPath(uid)).get()).get("vectorStoreId");
-      const fallbackStore =
-        typeof savedStoreId === "string" && savedStoreId.trim() ? savedStoreId : null;
-      await removeIndexedFile(createOpenAISearchApi(apiKey), fallbackStore, openaiFileId);
+    const storeId = (await db.doc(vectorStoreDocPath(uid)).get()).get("vectorStoreId");
+    const hasSearchData = Boolean(openaiFileId) || (typeof storeId === "string" && storeId.trim());
+    if (hasSearchData && !readOpenAIApiKey()) {
+      return actionFailure(500, "OPENAI_API_KEY_MISSING", OPENAI_KEY_MISSING_MESSAGE);
+    }
+    if (hasSearchData) {
+      const name = typeof docSnap.get("name") === "string" ? docSnap.get("name") : "";
+      await removeDocumentFromSearch(uid, { id: docId, name });
+    } else {
       await fileRef.delete().catch(() => undefined);
     }
 

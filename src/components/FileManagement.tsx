@@ -25,6 +25,7 @@ import {
 import { Trash2, UploadIcon } from "lucide-react";
 import { deleteDocument } from "@/actions/deleteDocument";
 import { pollIndex, postAction } from "@/lib/actionResponse";
+import { compareDocumentsNewestFirst } from "@/lib/documentOrder";
 import { INPUT_LIMITS } from "@/lib/inputLimits";
 import {
   contentTypeForFileName,
@@ -42,6 +43,13 @@ interface DocumentData {
   uploadedToRagie: boolean;
   createdAt?: Timestamp;
   createdAtLabel?: string;
+}
+
+function byNewestFirst(a: DocumentData, b: DocumentData): number {
+  return compareDocumentsNewestFirst(
+    { id: a.id, createdAtMillis: a.createdAt?.toMillis?.() ?? null },
+    { id: b.id, createdAtMillis: b.createdAt?.toMillis?.() ?? null }
+  );
 }
 
 function formatDocDate(createdAt?: Timestamp): string {
@@ -117,18 +125,20 @@ export default function FileManagement() {
           createdAt,
         });
 
-        setDocuments((prev) => [
-          ...prev,
-          {
-            id: docRef.id,
-            name: displayName,
-            url: downloadURL,
-            storagePath,
-            uploadedToRagie: false,
-            createdAt,
-            createdAtLabel: formatDocDate(createdAt),
-          },
-        ]);
+        setDocuments((prev) =>
+          [
+            ...prev,
+            {
+              id: docRef.id,
+              name: displayName,
+              url: downloadURL,
+              storagePath,
+              uploadedToRagie: false,
+              createdAt,
+              createdAtLabel: formatDocDate(createdAt),
+            },
+          ].sort(byNewestFirst)
+        );
         toast.success("File uploaded successfully");
       } catch {
         try {
@@ -169,14 +179,16 @@ export default function FileManagement() {
       const querySnapshot = await getDocs(
         collection(db, `users/${uid}/documents`)
       );
-      const docs = querySnapshot.docs.map((d) => {
-        const data = d.data() as Omit<DocumentData, "id" | "createdAtLabel">;
-        return {
-          id: d.id,
-          ...data,
-          createdAtLabel: formatDocDate(data.createdAt),
-        };
-      });
+      const docs = querySnapshot.docs
+        .map((d) => {
+          const data = d.data() as Omit<DocumentData, "id" | "createdAtLabel">;
+          return {
+            id: d.id,
+            ...data,
+            createdAtLabel: formatDocDate(data.createdAt),
+          };
+        })
+        .sort(byNewestFirst);
       setDocuments(docs);
     } catch {
       toast.error("Failed to load documents");

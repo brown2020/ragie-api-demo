@@ -10,10 +10,13 @@ import {
   OPENAI_KEY_MISSING_MESSAGE,
   openAIFailure,
   readOpenAIApiKey,
+  sourcesForLiveDocuments,
+  stripDroppedFilenames,
   type SearchSource,
 } from "@/lib/openai-search";
 import { RATE_LIMITS, assertRateLimit } from "@/lib/rateLimit";
 import { vectorStoreDocPath } from "@/lib/searchPaths";
+import { cleanupOrphanFiles, loadLiveDocuments } from "@/lib/searchMaintenance";
 
 export type AskPayload = {
   answer: string;
@@ -60,11 +63,21 @@ export async function askDocuments(
 
       const apiKey = readOpenAIApiKey();
       if (!apiKey) throw new Error("OPENAI_API_KEY_MISSING");
+      await cleanupOrphanFiles(uid);
       const result = await createOpenAISearchApi(apiKey).ask(vectorStoreId, trimmedQuery);
-      if (!result.answer && result.sources.length === 0) {
+      const live = await loadLiveDocuments(uid);
+      const sources = sourcesForLiveDocuments(result.sources, live);
+      const kept = new Set(
+        sources.map((source) => `${source.fileId ?? ""}|${source.filename}|${source.text ?? ""}`)
+      );
+      const dropped = result.sources.filter(
+        (source) => !kept.has(`${source.fileId ?? ""}|${source.filename}|${source.text ?? ""}`)
+      );
+      const answer = stripDroppedFilenames(result.answer, dropped);
+      if (!answer && sources.length === 0) {
         throw new Error("NO_RELEVANT_CONTENT");
       }
-      return { ok: true as const, data: result };
+      return { ok: true as const, data: { answer, sources } };
     });
   } catch (error) {
     if (error instanceof Error && error.message === "OPENAI_API_KEY_MISSING") {
