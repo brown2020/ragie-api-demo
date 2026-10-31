@@ -272,6 +272,98 @@ export function orphanCopies(files: IndexedCopy[], docs: LiveDocument[]): Indexe
   });
 }
 
+function assistantCopies(files: IndexedCopy[]): IndexedCopy[] {
+  return files.filter((file) => !file.purpose || file.purpose === "assistants");
+}
+
+function copiesForDocument(files: IndexedCopy[], doc: LiveDocument): IndexedCopy[] {
+  const names = new Set(doc.names.map((name) => name.trim()).filter(Boolean));
+  const saved = doc.fileId?.trim();
+  return assistantCopies(files).filter((file) => {
+    if (saved && file.fileId === saved) return true;
+    if (file.documentId && file.documentId === doc.id) return true;
+    return Boolean(file.filename && names.has(file.filename.trim()));
+  });
+}
+
+/**
+ * Extra copies of a current document. The saved file id is kept when it is
+ * still in the store; otherwise the tagged copy, then the lowest file id.
+ */
+export function duplicateCopies(files: IndexedCopy[], docs: LiveDocument[]): IndexedCopy[] {
+  const keep = new Set<string>();
+  const matched = new Map<string, IndexedCopy>();
+  for (const doc of docs) {
+    const matches = copiesForDocument(files, doc);
+    for (const file of matches) matched.set(file.fileId, file);
+    if (matches.length === 0) continue;
+    const saved = doc.fileId?.trim();
+    const keeper =
+      matches.find((file) => saved && file.fileId === saved) ??
+      matches.find((file) => file.documentId === doc.id) ??
+      [...matches].sort((a, b) => a.fileId.localeCompare(b.fileId))[0];
+    keep.add(keeper.fileId);
+  }
+  return [...matched.values()].filter((file) => !keep.has(file.fileId));
+}
+
+/** One source per document, with snippets merged and empty citations removed. */
+export function groupSourcesByDocument(
+  sources: SearchSource[],
+  docs: LiveDocument[]
+): SearchSource[] {
+  const byFile = new Map<string, LiveDocument>();
+  const byName = new Map<string, LiveDocument>();
+  for (const doc of docs) {
+    const saved = doc.fileId?.trim();
+    if (saved) byFile.set(saved, doc);
+    for (const name of doc.names) {
+      const trimmed = name.trim();
+      if (trimmed) byName.set(trimmed, doc);
+    }
+  }
+
+  const groups = new Map<
+    string,
+    { filename: string; fileId?: string; snippets: string[]; score?: number }
+  >();
+  for (const source of sources) {
+    const filename = source.filename?.trim() ?? "";
+    const matched =
+      (source.fileId && byFile.get(source.fileId)) ||
+      (filename && filename !== "Document" ? byName.get(filename) : undefined);
+    const key = matched
+      ? `doc:${matched.id}`
+      : source.fileId
+        ? `file:${source.fileId}`
+        : filename && filename !== "Document"
+          ? `name:${filename}`
+          : "";
+    const text = source.text?.trim() ?? "";
+    if (!key || !text) continue;
+    const display =
+      matched?.names.find((name) => name.trim())?.trim() || filename || "Document";
+    const current = groups.get(key) ?? {
+      filename: display,
+      fileId: matched?.fileId?.trim() || source.fileId,
+      snippets: [],
+      score: undefined as number | undefined,
+    };
+    if (!current.snippets.includes(text)) current.snippets.push(text);
+    if (typeof source.score === "number" && (current.score == null || source.score > current.score)) {
+      current.score = source.score;
+    }
+    groups.set(key, current);
+  }
+
+  return [...groups.values()].map((group) => ({
+    filename: group.filename,
+    fileId: group.fileId,
+    text: group.snippets.join("\n\n"),
+    score: group.score,
+  }));
+}
+
 export function isAppVectorStore(
   store: { name?: string; userId?: string } | null,
   uid: string

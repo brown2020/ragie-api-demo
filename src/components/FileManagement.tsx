@@ -12,6 +12,7 @@ import {
   collection,
   addDoc,
   getDocs,
+  getDocFromServer,
   updateDoc,
   doc,
   Timestamp,
@@ -68,6 +69,8 @@ export default function FileManagement() {
   const [deleting, setDeleting] = useState<Record<string, boolean>>({});
   const uid = useAuthStore((state) => state.uid);
   const uploadTaskRef = useRef<UploadTask | null>(null);
+  const deletedIds = useRef(new Set<string>());
+  const indexEpoch = useRef(new Map<string, number>());
 
   useEffect(() => {
     return () => {
@@ -188,6 +191,7 @@ export default function FileManagement() {
             createdAtLabel: formatDocDate(data.createdAt),
           };
         })
+        .filter((item) => !deletedIds.current.has(item.id))
         .sort(byNewestFirst);
       setDocuments(docs);
     } catch {
@@ -201,18 +205,32 @@ export default function FileManagement() {
       return;
     }
 
+    const epoch = indexEpoch.current.get(document.id) ?? 0;
     setIndexing((prev) => ({ ...prev, [document.id]: true }));
+    const stopped = () =>
+      deletedIds.current.has(document.id) || (indexEpoch.current.get(document.id) ?? 0) !== epoch;
 
     const markIndexed = async (indexed: boolean) => {
+      if (stopped()) return;
       if (hasClientConfig && db) {
-        await updateDoc(doc(db, `users/${uid}/documents`, document.id), {
-          uploadedToRagie: indexed,
-        });
+        try {
+          await updateDoc(doc(db, `users/${uid}/documents`, document.id), {
+            uploadedToRagie: indexed,
+          });
+        } catch (error) {
+          const code =
+            error && typeof error === "object" && "code" in error ? String(error.code) : "";
+          if (code === "not-found" || stopped()) return;
+          throw error;
+        }
       }
+      if (stopped()) return;
       setDocuments((prev) =>
-        prev.map((item) =>
-          item.id === document.id ? { ...item, uploadedToRagie: indexed } : item
-        )
+        prev
+          .filter((item) => !deletedIds.current.has(item.id))
+          .map((item) =>
+            item.id === document.id ? { ...item, uploadedToRagie: indexed } : item
+          )
       );
     };
 
@@ -223,6 +241,7 @@ export default function FileManagement() {
         "/api/search/index",
         { fileRef, fileName: document.name, documentId: document.id, idToken }
       );
+      if (stopped()) return;
       if (!started.ok) {
         if (started.error.code !== "UNEXPECTED_RESPONSE" && started.error.code !== "NETWORK_ERROR") {
           await markIndexed(false);
@@ -231,7 +250,8 @@ export default function FileManagement() {
         return;
       }
 
-      const finished = await pollIndex(document.id, idToken, started.data.status);
+      const finished = await pollIndex(document.id, idToken, started.data.status, stopped);
+      if (stopped() || (!finished.ok && finished.error.code === "DOCUMENT_DELETED")) return;
       if (!finished.ok) {
         if (finished.error.code !== "UNEXPECTED_RESPONSE" && finished.error.code !== "NETWORK_ERROR") {
           await markIndexed(false);
@@ -241,8 +261,10 @@ export default function FileManagement() {
       }
 
       await markIndexed(true);
+      if (stopped()) return;
       toast.success("Document indexed for search");
     } catch (error) {
+      if (stopped()) return;
       toast.error(error instanceof Error ? error.message : "Error indexing the document.");
     } finally {
       setIndexing((prev) => ({ ...prev, [document.id]: false }));
@@ -256,13 +278,22 @@ export default function FileManagement() {
     }
 
     setDeleting((prev) => ({ ...prev, [document.id]: true }));
+    indexEpoch.current.set(document.id, (indexEpoch.current.get(document.id) ?? 0) + 1);
     try {
       const idToken = await getFirebaseIdToken();
       const result = await deleteDocument(document.id, idToken);
-      if (!result.ok) {
-        toast.error(result.error.message);
+      if (!result?.ok) {
+        toast.error(result?.error?.message || "The document could not be deleted.");
         return;
       }
+      if (hasClientConfig && db) {
+        const fresh = await getDocFromServer(doc(db, `users/${uid}/documents`, document.id));
+        if (fresh.exists()) {
+          toast.error("The document could not be deleted.");
+          return;
+        }
+      }
+      deletedIds.current.add(document.id);
       setDocuments((prev) => prev.filter((item) => item.id !== document.id));
       toast.success("Document deleted");
     } catch (error) {
@@ -364,7 +395,7 @@ export default function FileManagement() {
                 <button
                   type="button"
                   onClick={() => handleDelete(document)}
-                  disabled={deleting[document.id] || indexing[document.id]}
+                  disabled={deleting[document.id]}
                   className="flex items-center space-x-2 text-red-700 px-3 py-1 rounded border border-red-700 hover:bg-red-50 disabled:opacity-60"
                 >
                   <Trash2 className="w-4 h-4" />

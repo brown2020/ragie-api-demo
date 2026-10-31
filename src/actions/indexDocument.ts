@@ -140,17 +140,27 @@ export async function indexDocument(
         documentId: docId,
       });
 
+      let saved = false;
       try {
-        await mappingRef.set({
-          openaiFileId: indexed.fileId,
-          vectorStoreId,
-          name: safeName,
-          status: indexed.status,
-          billed: true,
+        saved = await db.runTransaction(async (transaction) => {
+          const userDoc = await transaction.get(db.doc(`users/${uid}/documents/${docId}`));
+          if (!userDoc.exists) return false;
+          transaction.set(mappingRef, {
+            openaiFileId: indexed.fileId,
+            vectorStoreId,
+            name: safeName,
+            status: indexed.status,
+            billed: true,
+          });
+          return true;
         });
       } catch (error) {
         await removeIndexedFile(api, vectorStoreId, indexed.fileId).catch(() => undefined);
         throw error;
+      }
+      if (!saved) {
+        await removeIndexedFile(api, vectorStoreId, indexed.fileId).catch(() => undefined);
+        throw new Error("FILE_NOT_FOUND");
       }
 
       return { ok: true as const, data: { fileId: indexed.fileId, status: indexed.status } };

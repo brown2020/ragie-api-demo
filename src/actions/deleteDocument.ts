@@ -59,14 +59,20 @@ export async function deleteDocument(
     if (hasSearchData && !readOpenAIApiKey()) {
       return actionFailure(500, "OPENAI_API_KEY_MISSING", OPENAI_KEY_MISSING_MESSAGE);
     }
+
+    const name = typeof docSnap.get("name") === "string" ? docSnap.get("name") : "";
+    const storagePath = docSnap.get("storagePath");
+    // Remove the list row before the slower storage and vector-store work.
+    // A reload during that work must not show the document again, and a status
+    // poll must observe that it is gone before it writes anything back.
+    await docRef.delete();
+
     if (hasSearchData) {
-      const name = typeof docSnap.get("name") === "string" ? docSnap.get("name") : "";
       await removeDocumentFromSearch(uid, { id: docId, name });
     } else {
       await fileRef.delete().catch(() => undefined);
     }
 
-    const storagePath = docSnap.get("storagePath");
     if (typeof storagePath === "string" && storagePath.startsWith(`users/${uid}/documents/`)) {
       try {
         await getAdminBucket().file(storagePath).delete({ ignoreNotFound: true });
@@ -80,7 +86,6 @@ export async function deleteDocument(
       }
     }
 
-    await docRef.delete();
     return { ok: true, data: { deleted: true } };
   } catch (error) {
     const providerError = openAIFailure(error);

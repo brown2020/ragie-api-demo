@@ -14,6 +14,8 @@ import {
   isAppVectorStore,
   orphanCopies,
   removeIndexedFile,
+  duplicateCopies,
+  groupSourcesByDocument,
   sourcesForLiveDocuments,
   stripDroppedFilenames,
   replaceIndexedCopies,
@@ -200,6 +202,49 @@ describe("openai file search", () => {
       [{ id: "doc-2", names: ["keep.txt"], fileId: "live" }]
     );
     expect(orphans.map((file) => file.fileId)).toEqual(["gone"]);
+  });
+
+  it("keeps the saved file and drops extra copies of that document", () => {
+    const extras = duplicateCopies(
+      [
+        { fileId: "file_saved", filename: "qa-sample.pdf", documentId: "doc-1", status: "completed", purpose: "assistants" },
+        { fileId: "file_b", filename: "qa-sample.pdf", status: "completed", purpose: "assistants" },
+        { fileId: "file_c", filename: "qa-sample.pdf", documentId: "doc-9", status: "completed", purpose: "assistants" },
+        { fileId: "file_txt", filename: "qa-sample.txt", documentId: "doc-2", status: "completed", purpose: "assistants" },
+        { fileId: "file_foreign", filename: "qa-sample.pdf", status: "completed", purpose: "fine-tune" },
+      ],
+      [
+        { id: "doc-1", names: ["qa-sample.pdf"], fileId: "file_saved" },
+        { id: "doc-2", names: ["qa-sample.txt"], fileId: "file_txt" },
+      ]
+    );
+    expect(extras.map((file) => file.fileId)).toEqual(["file_b", "file_c"]);
+  });
+
+  it("groups citations by document and drops empty entries", () => {
+    const sources = groupSourcesByDocument(
+      [
+        { filename: "qa-sample.pdf", fileId: "file_saved", text: "Policy chunk", score: 0.4 },
+        { filename: "qa-sample.pdf", fileId: "file_b", text: "Policy chunk", score: 0.2 },
+        { filename: "qa-sample.pdf", fileId: "file_c" },
+        { filename: "qa-sample.txt", fileId: "file_txt", text: "Note", score: 0.5 },
+        { filename: "qa-sample.txt", fileId: "file_txt" },
+        { filename: "qa-sample.txt", fileId: "file_old", text: "Note again" },
+      ],
+      [
+        { id: "doc-1", names: ["qa-sample.pdf"], fileId: "file_saved" },
+        { id: "doc-2", names: ["qa-sample.txt"], fileId: "file_txt" },
+      ]
+    );
+    expect(sources).toEqual([
+      { filename: "qa-sample.pdf", fileId: "file_saved", text: "Policy chunk", score: 0.4 },
+      {
+        filename: "qa-sample.txt",
+        fileId: "file_txt",
+        text: "Note\n\nNote again",
+        score: 0.5,
+      },
+    ]);
   });
 
   it("drops citations that do not belong to a current document", () => {

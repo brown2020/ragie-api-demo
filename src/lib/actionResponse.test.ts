@@ -31,4 +31,14 @@ describe("action JSON responses", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
+
+  it("does not poll a document whose delete already started", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await pollIndex("doc-1", "token", "completed", () => true);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("DOCUMENT_DELETED");
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
 });

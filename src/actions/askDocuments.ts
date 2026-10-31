@@ -7,6 +7,7 @@ import { withCredits } from "@/lib/credits";
 import { assertQuery } from "@/lib/inputLimits";
 import {
   createOpenAISearchApi,
+  groupSourcesByDocument,
   OPENAI_KEY_MISSING_MESSAGE,
   openAIFailure,
   readOpenAIApiKey,
@@ -66,9 +67,10 @@ export async function askDocuments(
       await cleanupOrphanFiles(uid);
       const result = await createOpenAISearchApi(apiKey).ask(vectorStoreId, trimmedQuery);
       const live = await loadLiveDocuments(uid);
-      const sources = sourcesForLiveDocuments(result.sources, live);
+      const liveSources = sourcesForLiveDocuments(result.sources, live);
+      const sources = groupSourcesByDocument(liveSources, live);
       const kept = new Set(
-        sources.map((source) => `${source.fileId ?? ""}|${source.filename}|${source.text ?? ""}`)
+        liveSources.map((source) => `${source.fileId ?? ""}|${source.filename}|${source.text ?? ""}`)
       );
       const dropped = result.sources.filter(
         (source) => !kept.has(`${source.fileId ?? ""}|${source.filename}|${source.text ?? ""}`)

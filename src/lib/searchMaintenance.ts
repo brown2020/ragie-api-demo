@@ -2,6 +2,7 @@ import { getAdminDb } from "@/firebase/firebaseAdmin";
 import {
   createOpenAISearchApi,
   documentMatchNames,
+  duplicateCopies,
   fileIdsForDocument,
   isAppVectorStore,
   orphanCopies,
@@ -53,14 +54,25 @@ export async function cleanupOrphanFiles(
 
   const files = await api.listStoreFiles(vectorStoreId);
   const live = await loadLiveDocuments(uid, exceptId);
-  const orphans = orphanCopies(files, live);
+  const doomed = uniqueCopies([...orphanCopies(files, live), ...duplicateCopies(files, live)]);
   const filenames: string[] = [];
-  for (const file of orphans) {
+  for (const file of doomed) {
     await removeIndexedFile(api, vectorStoreId, file.fileId);
     if (file.filename) filenames.push(file.filename);
     await deleteMappingForFile(uid, file.fileId);
   }
-  return { removed: orphans.length, filenames };
+  return { removed: doomed.length, filenames };
+}
+
+function uniqueCopies(files: IndexedCopy[]): IndexedCopy[] {
+  const seen = new Set<string>();
+  const unique: IndexedCopy[] = [];
+  for (const file of files) {
+    if (seen.has(file.fileId)) continue;
+    seen.add(file.fileId);
+    unique.push(file);
+  }
+  return unique;
 }
 
 async function deleteMappingForFile(uid: string, fileId: string): Promise<void> {
@@ -103,6 +115,7 @@ export async function removeDocumentFromSearch(
   if (savedFileId) targeted.add(savedFileId);
   const remaining = await loadLiveDocuments(uid, document.id);
   for (const orphan of orphanCopies(files, remaining)) targeted.add(orphan.fileId);
+  for (const extra of duplicateCopies(files, remaining)) targeted.add(extra.fileId);
 
   const filenames: string[] = [];
   const byId = new Map(files.map((file) => [file.fileId, file]));

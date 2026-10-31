@@ -25,10 +25,18 @@ function assertDocumentId(documentId: string): string {
   return id;
 }
 
-async function claimIndexRefund(fileRef: DocumentReference): Promise<boolean> {
+async function claimIndexRefund(
+  fileRef: DocumentReference,
+  userRef: DocumentReference
+): Promise<boolean> {
   const db = getAdminDb();
   return db.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
     const fresh = await transaction.get(fileRef);
+    if (!userDoc.exists) {
+      if (fresh.exists) transaction.delete(fileRef);
+      return false;
+    }
     if (fresh.get("billed") !== true) return false;
     transaction.set(fileRef, { billed: false }, { merge: true });
     return true;
@@ -60,10 +68,15 @@ export async function indexStatus(
   try {
     const db = getAdminDb();
     const fileRef = db.doc(indexedFileDocPath(uid, docId));
+    const userRef = db.doc(`users/${uid}/documents/${docId}`);
     const fileSnap = await fileRef.get();
     const fileId = savedOpenAIFileId(fileSnap.data());
     const vectorStoreId = fileSnap.get("vectorStoreId");
     if (!fileId || typeof vectorStoreId !== "string" || !vectorStoreId.trim()) {
+      if (!(await userRef.get()).exists) {
+        await fileRef.delete().catch(() => undefined);
+        return actionFailure(404, "DOCUMENT_DELETED", "That document was deleted.");
+      }
       return actionFailure(404, "NOT_INDEXED", "Index the document before checking its status.");
     }
 
@@ -73,26 +86,52 @@ export async function indexStatus(
     }
     const api = createOpenAISearchApi(apiKey);
     const remote = await api.fileStatus(vectorStoreId, fileId);
-    if (!remote) {
-      if (await claimIndexRefund(fileRef)) {
-        await refundCredits(uid, CREDIT_COSTS.upload).catch(() => undefined);
-      }
-      await fileRef.delete().catch(() => undefined);
-      return actionFailure(404, "OPENAI_NOT_FOUND", "That indexed file is no longer in OpenAI.");
+    const documentWasDeleted = async (): Promise<boolean> => {
+      return db.runTransaction(async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        const mapping = await transaction.get(fileRef);
+        if (userDoc.exists) return false;
+        if (mapping.exists) transaction.delete(fileRef);
+        return true;
+      });
+    };
+    if (await documentWasDeleted()) {
+      return actionFailure(404, "DOCUMENT_DELETED", "That document was deleted.");
     }
 
-    if (remote.status === "failed" || remote.status === "cancelled") {
-      const failure = new IndexProcessingError(remote.errorMessage);
-      await removeIndexedFile(api, vectorStoreId, fileId).catch(() => undefined);
-      if (await claimIndexRefund(fileRef)) {
+    if (!remote || remote.status === "failed" || remote.status === "cancelled") {
+      if (remote) {
+        await removeIndexedFile(api, vectorStoreId, fileId).catch(() => undefined);
+      }
+      if (await documentWasDeleted()) {
+        return actionFailure(404, "DOCUMENT_DELETED", "That document was deleted.");
+      }
+      if (await claimIndexRefund(fileRef, userRef)) {
         await refundCredits(uid, CREDIT_COSTS.upload).catch(() => undefined);
       }
       await fileRef.delete().catch(() => undefined);
+      if (!remote) {
+        return actionFailure(404, "OPENAI_NOT_FOUND", "That indexed file is no longer in OpenAI.");
+      }
+      const failure = new IndexProcessingError(remote.errorMessage);
       return actionFailure(422, failure.code, failure.message);
     }
 
     if (remote.status === "completed") {
-      await fileRef.set({ status: "completed" }, { merge: true });
+      const wrote = await db.runTransaction(async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        const mapping = await transaction.get(fileRef);
+        if (!userDoc.exists) {
+          if (mapping.exists) transaction.delete(fileRef);
+          return false;
+        }
+        if (savedOpenAIFileId(mapping.data()) !== fileId) return false;
+        transaction.set(fileRef, { status: "completed" }, { merge: true });
+        return true;
+      });
+      if (!wrote && !(await userRef.get()).exists) {
+        return actionFailure(404, "DOCUMENT_DELETED", "That document was deleted.");
+      }
       return { ok: true, data: { fileId, status: "completed" } };
     }
 

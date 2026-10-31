@@ -15,19 +15,26 @@ export const UNEXPECTED_SERVER_MESSAGE =
 export async function pollIndex(
   documentId: string,
   idToken: string,
-  initial: "in_progress" | "completed"
+  initial: "in_progress" | "completed",
+  isCancelled?: () => boolean
 ): Promise<ActionResult<{ status: "completed" }>> {
+  const cancelled = (): ActionResult<{ status: "completed" }> =>
+    actionFailure(409, "DOCUMENT_DELETED", "That document was deleted.");
+  if (isCancelled?.()) return cancelled();
   let status = initial;
   const deadline = Date.now() + 120_000;
   while (status === "in_progress" && Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, 1500));
+    if (isCancelled?.()) return cancelled();
     const polled = await postAction<{ status: "in_progress" | "completed" }>("/api/search/status", {
       documentId,
       idToken,
     });
+    if (isCancelled?.()) return cancelled();
     if (!polled.ok) return polled;
     status = polled.data.status;
   }
+  if (isCancelled?.()) return cancelled();
   if (status !== "completed") {
     return actionFailure(
       504,
