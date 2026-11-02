@@ -12,10 +12,13 @@ Punchlist after the move from Ragie to OpenAI file search. Ragie's hosted API sh
 
 ## Dependency follow-ups
 
-- TypeScript 7.0.2 is published and is not feasible here. `typescript-eslint` (via `eslint-config-next` 16.4) refuses TypeScript 7.0. The app stays on TypeScript `^6.0.3`. Revisit when typescript-eslint documents TS 7 support, or run ESLint against a side-by-side TypeScript 6 install.
-- Keep the `jwks-rsa` → `jose` `5.10.0` override while `firebase-admin` 14 / `jwks-rsa` 4 loads `jose` with `require()`. `jose` 6 is ESM-only and throws `ERR_REQUIRE_ESM`.
-- `npm audit` is clean. `glob` 10.x under `firebase-admin` → `rimraf` is deprecated upstream and is not an audit finding. Do not force-upgrade it ahead of `firebase-admin`.
-- Latest majors already in tree as of this pass: Next 16.4, React 19.3, Firebase 13, firebase-admin 14, AI SDK 7, Stripe 23, Zod 4, ESLint 10, Tailwind 4, Vitest 5. The maintenance bump itself was patch-level (`ai`, `@ai-sdk/rsc`, `@ai-sdk/anthropic`, `@types/node`).
+- TypeScript 7.0.2 is the `latest` dist-tag and is not feasible here. `typescript-eslint` 8.72.1 (pulled by `eslint-config-next` 16.4.3) declares a `typescript` peer of `>=4.8.4 <6.1.0`. The app stays on TypeScript `^6.0.3`, the newest release inside that range. Revisit when typescript-eslint accepts TypeScript 7.
+- Keep the `jwks-rsa` → `jose` `5.10.0` override. `firebase-admin` 14.5.0 still depends on `jwks-rsa` 4.1.0, which loads `jose` with `require()`. `jose` 6.2.15 is ESM-only and throws `ERR_REQUIRE_ESM`. `5.10.0` is the newest `jose` 5 release.
+- Keep the `@grpc/grpc-js` override. Transitive ranges still include `~1.9.0` and `^1.12.6`. The pin is now `1.14.7` (was `1.14.6`), the newest patch, which still contains the GHSA-m9gg-hp2v-232j and GHSA-f596-whhp-79r4 fixes.
+- `glob` is overridden to `14.0.3`. GHSA-3g3m-2fjr-6pw4 covers `glob` `>=9.0.0 <=14.0.1` and has no backport. `firebase-admin` → `@google-cloud/firestore-api` → `google-gax` 5 → `rimraf` 5 still requests `glob` 10. `glob` 14 still exports `glob` and `globSync`, which is what `rimraf` 5 calls. Do not jump `google-gax` from 5 to 6 under `firestore-api`; that package requires `google-gax` `^5`.
+- `minimatch` `11.0.4` is forced only for `eslint`, `@eslint/config-array`, and `@typescript-eslint/typescript-estree` (they use the `Minimatch` class or the named `minimatch` export). `eslint-plugin-import`, `eslint-plugin-jsx-a11y`, and `eslint-plugin-react` stay on `minimatch` 3.1.5. `minimatch` 11 removes the callable CommonJS export and `makeRe()`, and those plugins call both. GHSA-g3hv-75wg-m249 has no patched release below 11.0.1. `npm audit` therefore reports 5 moderate findings, all in that dev-only chain. Do not force `minimatch` 11 onto those plugins, and do not downgrade `eslint-config-next` to silence the audit.
+- `postcss-selector-parser` stays overridden at `7.1.7`, which is also the latest release.
+- Direct latest versions in this pass: Next 16.4.3, React 19.3.1, Firebase 13.1.0, firebase-admin 14.5.0, AI SDK `ai` 7.0.159 and `@ai-sdk/rsc` 3.0.159, Stripe 23.1.0, OpenAI SDK 7.47.0, Lucide 1.66.0, Zod 4.6.7, ESLint 10.14.0, Tailwind 4.3.3, Vitest 5.0.5. No newer stable major is published for those packages except TypeScript 7, held above. Model ids were not changed.
 
 ## Known limits and bugs
 
