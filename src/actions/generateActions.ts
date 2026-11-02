@@ -1,7 +1,7 @@
 "use server";
 
 import { createStreamableValue, type StreamableValue } from "@ai-sdk/rsc";
-import { ModelMessage, streamText } from "ai";
+import { streamText } from "ai";
 import { createOpenAI, openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
 import { mistral } from "@ai-sdk/mistral";
@@ -11,6 +11,7 @@ import { CREDIT_COSTS } from "@/lib/billing";
 import { withCredits } from "@/lib/credits";
 import { assertChunks, assertQuery } from "@/lib/inputLimits";
 import { actionFailure, mapKnownActionError, type ActionResult } from "@/lib/actionResult";
+import { chunkAnswerPrompt, forwardGenerationStream } from "@/lib/generationStream";
 import { RATE_LIMITS, assertRateLimit } from "@/lib/rateLimit";
 
 const fireworks = createOpenAI({
@@ -86,24 +87,16 @@ async function generateResponse(
   modelName: string
 ) {
   const model = await getModel(modelName);
-
-  const messages: ModelMessage[] = [
-    {
-      role: "system",
-      content: systemPrompt,
-    },
-    {
-      role: "user",
-      content: userPrompt,
-    },
-  ];
-
+  const stream = createStreamableValue<string>();
   const result = streamText({
     model,
-    messages,
+    ...chunkAnswerPrompt(systemPrompt, userPrompt),
   });
 
-  const stream = createStreamableValue(result.textStream);
+  // textStream drops error parts. Read the full stream so a failure reaches
+  // the caller through the streamable value instead of ending as empty text.
+  void forwardGenerationStream(result.fullStream, stream);
+
   return stream.value;
 }
 
