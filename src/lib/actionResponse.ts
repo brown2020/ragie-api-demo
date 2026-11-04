@@ -57,6 +57,13 @@ export async function postAction<T>(url: string, body: unknown): Promise<ActionR
     return actionFailure(503, "NETWORK_ERROR", "The request could not reach the server. Please try again.");
   }
 
+  if (!response.ok) {
+    return readFetchedAction<T>(response);
+  }
+  return readFetchedAction<T>(response);
+}
+
+async function readFetchedAction<T>(response: Response): Promise<ActionResult<T>> {
   const text = await response.text();
   let parsed: unknown = null;
   try {

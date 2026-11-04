@@ -31,8 +31,10 @@ async function claimIndexRefund(
 ): Promise<boolean> {
   const db = getAdminDb();
   return db.runTransaction(async (transaction) => {
-    const userDoc = await transaction.get(userRef);
-    const fresh = await transaction.get(fileRef);
+    const [userDoc, fresh] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(fileRef),
+    ]);
     if (!userDoc.exists) {
       if (fresh.exists) transaction.delete(fileRef);
       return false;
@@ -88,8 +90,10 @@ export async function indexStatus(
     const remote = await api.fileStatus(vectorStoreId, fileId);
     const documentWasDeleted = async (): Promise<boolean> => {
       return db.runTransaction(async (transaction) => {
-        const userDoc = await transaction.get(userRef);
-        const mapping = await transaction.get(fileRef);
+        const [userDoc, mapping] = await Promise.all([
+          transaction.get(userRef),
+          transaction.get(fileRef),
+        ]);
         if (userDoc.exists) return false;
         if (mapping.exists) transaction.delete(fileRef);
         return true;
@@ -119,8 +123,10 @@ export async function indexStatus(
 
     if (remote.status === "completed") {
       const wrote = await db.runTransaction(async (transaction) => {
-        const userDoc = await transaction.get(userRef);
-        const mapping = await transaction.get(fileRef);
+        const [userDoc, mapping] = await Promise.all([
+          transaction.get(userRef),
+          transaction.get(fileRef),
+        ]);
         if (!userDoc.exists) {
           if (mapping.exists) transaction.delete(fileRef);
           return false;

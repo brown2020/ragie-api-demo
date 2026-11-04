@@ -9,6 +9,28 @@ describe("action JSON responses", () => {
     expect(readActionResult("<html>An error occurred</html>")).toBeNull();
   });
 
+  it("keeps a JSON error body when the server responds with an HTTP error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            ok: false,
+            error: { status: 401, code: "UNAUTHORIZED", message: "User authentication required." },
+          }),
+          { status: 401, headers: { "content-type": "application/json" } }
+        )
+      )
+    );
+    const result = await postAction("/api/search/ask", {});
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("UNAUTHORIZED");
+      expect(result.error.status).toBe(401);
+    }
+    vi.unstubAllGlobals();
+  });
+
   it("turns a non-JSON server response into a JSON error the UI can show", async () => {
     vi.stubGlobal(
       "fetch",

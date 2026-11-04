@@ -1,4 +1,5 @@
 import OpenAI, { toFile } from "openai";
+import { runInOrder } from "./runInOrder";
 import { sanitizeFileName } from "./storageAccess";
 
 /**
@@ -424,9 +425,7 @@ export async function replaceIndexedCopies(
 ): Promise<string[]> {
   const listed = await api.listStoreFiles(vectorStoreId);
   const ids = fileIdsToReplace(listed, target);
-  for (const fileId of ids) {
-    await removeIndexedFile(api, vectorStoreId, fileId);
-  }
+  await runInOrder(ids, (fileId) => removeIndexedFile(api, vectorStoreId, fileId));
   return ids;
 }
 

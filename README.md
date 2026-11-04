@@ -18,17 +18,17 @@ A Next.js demo of a user-scoped **retrieval-augmented generation (RAG)** workflo
 
 | Layer | Choice |
 | --- | --- |
-| Framework | Next.js `^16.4.3` (App Router) |
-| UI | React `^19.3.1`, Tailwind CSS `^4.3.3`, Lucide `1.66.0` |
+| Framework | Next.js `^16.4.5` (App Router) |
+| UI | React `^19.3.1`, Tailwind CSS `^4.3.4`, Lucide `1.68.0` |
 | Language | TypeScript `^6.0.3` |
-| Auth / data | Firebase `^13.1.0` (Auth, Firestore, Storage) + Firebase Admin `^14.5.0` |
+| Auth / data | Firebase `^13.2.0` (Auth, Firestore, Storage) + Firebase Admin `^14.5.0` |
 | Search | OpenAI Files API, Vector Stores, and Responses `file_search` (`openai` npm SDK) |
-| AI | Vercel AI SDK (`ai` `^7.0.159`, `@ai-sdk/*`, `@ai-sdk/rsc` `^3.0.159`) |
+| AI | Vercel AI SDK (`ai` `^7.0.162`, `@ai-sdk/*`, `@ai-sdk/rsc` `^3.0.162`) |
 | Payments | Stripe `^23.1.0`, `@stripe/react-stripe-js` `^7.0.1` |
 | State | Zustand `^5.0.16` |
 | Validation | Zod `^4.6.7` |
-| Tests | Vitest `^5.0.5` |
-| Lint | ESLint `^10.14.0` + `eslint-config-next` `^16.4.3` |
+| Tests | Vitest `^5.1.0` |
+| Lint | ESLint `^10.14.0` + `eslint-config-next` `^16.4.5` |
 
 `firebase-admin` 14 pulls in `jwks-rsa` 4, which loads `jose` with `require()`. `package.json` overrides `jwks-rsa`'s `jose` to `5.10.0` because `jose` 6 is ESM-only. It also pins `@grpc/grpc-js` to `1.14.7`, `glob` to `14.0.3`, and `postcss-selector-parser` to `7.1.7`. Leave those overrides in place. `roadmap.md` explains the `minimatch` split.
 

@@ -65,8 +65,11 @@ export async function askDocuments(
       const apiKey = readOpenAIApiKey();
       if (!apiKey) throw new Error("OPENAI_API_KEY_MISSING");
       await cleanupOrphanFiles(uid);
-      const result = await createOpenAISearchApi(apiKey).ask(vectorStoreId, trimmedQuery);
-      const live = await loadLiveDocuments(uid);
+      const api = createOpenAISearchApi(apiKey);
+      const [result, live] = await Promise.all([
+        api.ask(vectorStoreId, trimmedQuery),
+        loadLiveDocuments(uid),
+      ]);
       const liveSources = sourcesForLiveDocuments(result.sources, live);
       const sources = groupSourcesByDocument(liveSources, live);
       const kept = new Set(

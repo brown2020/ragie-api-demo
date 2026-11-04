@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useDropzone } from "react-dropzone";
+import { useDropzone, type DropzoneInputProps, type DropzoneRootProps } from "react-dropzone";
 import {
   ref,
   uploadBytesResumable,
@@ -60,6 +60,130 @@ function formatDocDate(createdAt?: Timestamp): string {
   } catch {
     return "Pending";
   }
+}
+
+function UploadDropzone({
+  rootProps,
+  inputProps,
+  isDragActive,
+  open,
+  uploading,
+  canUpload,
+}: {
+  rootProps: DropzoneRootProps;
+  inputProps: DropzoneInputProps;
+  isDragActive: boolean;
+  open: () => void;
+  uploading: boolean;
+  canUpload: boolean;
+}) {
+  return (
+    <>
+      <div
+        {...rootProps}
+        className={`border-2 border-dashed rounded-lg p-10 flex justify-center items-center cursor-pointer transition duration-200 ${
+          isDragActive
+            ? "border-blue-400 bg-blue-50"
+            : "border-gray-300 bg-white hover:border-blue-300 hover:bg-gray-50"
+        }`}
+      >
+        <input {...inputProps} />
+        {isDragActive ? (
+          <p className="text-blue-400">Drop the files here ...</p>
+        ) : (
+          <p className="text-gray-500">
+            {`Drag 'n' drop some files here, or click the button below to select files`}
+          </p>
+        )}
+      </div>
+
+      <div className="mt-4 text-center">
+        <button
+          type="button"
+          onClick={open}
+          disabled={uploading || !canUpload}
+          className={`btn-primary mt-3 ${uploading ? "btn-loading" : ""}`}
+        >
+          {uploading ? "Uploading..." : "Upload Document"}
+        </button>
+      </div>
+    </>
+  );
+}
+
+function DocumentList({
+  documents,
+  indexing,
+  deleting,
+  onIndex,
+  onDelete,
+}: {
+  documents: DocumentData[];
+  indexing: Record<string, boolean>;
+  deleting: Record<string, boolean>;
+  onIndex: (document: DocumentData) => void;
+  onDelete: (document: DocumentData) => void;
+}) {
+  return (
+    <>
+      <h2 className="text-xl font-semibold text-gray-800 mt-8">Uploaded Documents</h2>
+      {documents.length === 0 ? (
+        <p className="text-gray-500 mt-4">No documents uploaded yet.</p>
+      ) : (
+        <ul className="mt-4 space-y-2">
+          {documents.map((document) => (
+            <li
+              key={document.id}
+              className="flex items-center justify-between p-4 border rounded-lg shadow-sm bg-white"
+            >
+              <div className="flex items-center space-x-4">
+                {isSafeStorageUrl(document.url) ? (
+                  <a
+                    href={document.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-700 hover:underline"
+                  >
+                    {document.name}
+                  </a>
+                ) : (
+                  <span className="text-gray-800">{document.name}</span>
+                )}
+                {document.uploadedToRagie && <span className="text-sm text-green-700">Indexed</span>}
+                <button
+                  type="button"
+                  onClick={() => onIndex(document)}
+                  disabled={indexing[document.id] || deleting[document.id]}
+                  className={`flex items-center space-x-2 text-blue-700 px-3 py-1 rounded border border-blue-700 cursor-pointer hover:bg-blue-50 hover:shadow-sm transition-all duration-200 ${
+                    indexing[document.id] ? "opacity-60 cursor-not-allowed" : ""
+                  }`}
+                >
+                  <UploadIcon className="w-4 h-4" />
+                  <span>
+                    {indexing[document.id]
+                      ? "Indexing..."
+                      : document.uploadedToRagie
+                        ? "Re-index"
+                        : "Index for search"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(document)}
+                  disabled={deleting[document.id]}
+                  className="flex items-center space-x-2 text-red-700 px-3 py-1 rounded border border-red-700 hover:bg-red-50 disabled:opacity-60"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>{deleting[document.id] ? "Deleting..." : "Delete"}</span>
+                </button>
+              </div>
+              <span className="text-sm text-gray-500">{document.createdAtLabel ?? "Pending"}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
 }
 
 export default function FileManagement() {
@@ -314,101 +438,22 @@ export default function FileManagement() {
 
   return (
     <div className="w-full max-w-6xl mx-auto p-4 bg-white rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-        File Management
-      </h1>
-
-      <div
-        {...getRootProps()}
-        className={`border-2 border-dashed rounded-lg p-10 flex justify-center items-center cursor-pointer transition duration-200 ${
-          isDragActive
-            ? "border-blue-400 bg-blue-50"
-            : "border-gray-300 bg-white hover:border-blue-300 hover:bg-gray-50"
-        }`}
-      >
-        <input {...getInputProps()} />
-        {isDragActive ? (
-          <p className="text-blue-400">Drop the files here ...</p>
-        ) : (
-          <p className="text-gray-500">
-            {`Drag 'n' drop some files here, or click the button below to select files`}
-          </p>
-        )}
-      </div>
-
-      <div className="mt-4 text-center">
-        <button
-          type="button"
-          onClick={open}
-          disabled={uploading || !uid}
-          className={`btn-primary mt-3 ${uploading ? "btn-loading" : ""}`}
-        >
-          {uploading ? "Uploading..." : "Upload Document"}
-        </button>
-      </div>
-
-      <h2 className="text-xl font-semibold text-gray-800 mt-8">
-        Uploaded Documents
-      </h2>
-      {documents.length === 0 ? (
-        <p className="text-gray-500 mt-4">No documents uploaded yet.</p>
-      ) : (
-        <ul className="mt-4 space-y-2">
-          {documents.map((document) => (
-            <li
-              key={document.id}
-              className="flex items-center justify-between p-4 border rounded-lg shadow-sm bg-white"
-            >
-              <div className="flex items-center space-x-4">
-                {isSafeStorageUrl(document.url) ? (
-                  <a
-                    href={document.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-700 hover:underline"
-                  >
-                    {document.name}
-                  </a>
-                ) : (
-                  <span className="text-gray-800">{document.name}</span>
-                )}
-                {document.uploadedToRagie && (
-                  <span className="text-sm text-green-700">Indexed</span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => handleIndex(document)}
-                  disabled={indexing[document.id] || deleting[document.id]}
-                  className={`flex items-center space-x-2 text-blue-700 px-3 py-1 rounded border border-blue-700 cursor-pointer hover:bg-blue-50 hover:shadow-sm transition-all duration-200 ${
-                    indexing[document.id] ? "opacity-60 cursor-not-allowed" : ""
-                  }`}
-                >
-                  <UploadIcon className="w-4 h-4" />
-                  <span>
-                    {indexing[document.id]
-                      ? "Indexing..."
-                      : document.uploadedToRagie
-                        ? "Re-index"
-                        : "Index for search"}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(document)}
-                  disabled={deleting[document.id]}
-                  className="flex items-center space-x-2 text-red-700 px-3 py-1 rounded border border-red-700 hover:bg-red-50 disabled:opacity-60"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>{deleting[document.id] ? "Deleting..." : "Delete"}</span>
-                </button>
-              </div>
-              <span className="text-sm text-gray-500">
-                {document.createdAtLabel ?? "Pending"}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center">File Management</h1>
+      <UploadDropzone
+        rootProps={getRootProps()}
+        inputProps={getInputProps()}
+        isDragActive={isDragActive}
+        open={open}
+        uploading={uploading}
+        canUpload={Boolean(uid)}
+      />
+      <DocumentList
+        documents={documents}
+        indexing={indexing}
+        deleting={deleting}
+        onIndex={handleIndex}
+        onDelete={handleDelete}
+      />
     </div>
   );
 }
