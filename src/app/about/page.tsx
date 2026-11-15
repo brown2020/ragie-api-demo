@@ -53,7 +53,7 @@ export default function AboutPage() {
           <h2 className="text-xl font-semibold text-gray-700 mb-3">Features</h2>
           <ul className="list-disc list-inside text-gray-600 space-y-2">
             <li>Secure document storage with user-scoped access</li>
-            <li>Multiple AI model support (GPT-6.1 Sol, Claude Opus 5.5, and Gemini 4 Argon)</li>
+            <li>Multiple AI model support (GPT-6.1 Sol, Claude Opus 5.5, Gemini 4 Argon, and Grok 4.7)</li>
             <li>Real-time streaming responses</li>
             <li>Credit-based usage system</li>
             <li>Easy document management</li>

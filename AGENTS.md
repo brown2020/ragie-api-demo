@@ -33,7 +33,7 @@ Use `npm run lint` as the primary quality gate. Use `npm run build` when source 
 - User data is scoped under Firestore paths such as `users/{uid}/profile/userData`, `users/{uid}/documents`, and `users/{uid}/payments`.
 - Document files are uploaded to Firebase Storage under `users/{uid}/documents/{fileName}` and then indexed through server actions.
 - OpenAI file search uses the server-side `OPENAI_API_KEY`. Each Firebase uid has one vector store. The Responses call uses `gpt-6.1-sol`.
-- AI generation uses `@ai-sdk/rsc` streaming with exactly three chat models from `src/lib/chatModels.ts`: OpenAI `gpt-6.1-sol` (default, Responses API), Anthropic `claude-opus-5-5`, and Google `gemini-4-argon`.
+- AI generation uses `@ai-sdk/rsc` streaming with exactly four chat models from `src/lib/chatModels.ts`: OpenAI `gpt-6.1-sol` (default, Responses API), Anthropic `claude-opus-5-5`, Google `gemini-4-argon`, and xAI `grok-4.7` (Responses API, `XAI_API_KEY`).
 - Stripe checkout is handled through server actions. Successful payment processing records the payment and increments credits server-side with Admin Firestore.
 
 ## Working Rules

@@ -19,7 +19,7 @@ Demonstrate a user-scoped RAG loop:
 - Tailwind CSS 4.
 - Firebase Auth, Firestore, and Storage on the client; Firebase Admin 14 on the server.
 - OpenAI official `openai` npm SDK: Files API (`purpose: assistants`), one vector store per uid, and Responses API `file_search`. `OPENAI_API_KEY` is read only on the server. A missing key returns an error result and does not throw to the browser.
-- Vercel AI SDK (`ai` 7, `@ai-sdk/rsc`) remains available for the three-model `generateWithChunks` action. Dashboard questions do not use that path.
+- Vercel AI SDK (`ai` 7, `@ai-sdk/rsc`) remains available for the four-model `generateWithChunks` action. Dashboard questions do not use that path.
 - Stripe 23 for a single catalog PaymentIntent.
 - Zustand for auth, profile, and payment client state.
 - Vitest for unit tests. GitHub Actions runs lint, typecheck, test, and production build on Node 24 without secrets.
@@ -31,8 +31,9 @@ Model ids are part of the product behavior and are not changed by dependency mai
 | `gpt-6.1-sol` (default) | OpenAI GPT-6.1 Sol | `OPENAI_API_KEY` |
 | `claude-opus-5-5` | Anthropic Claude Opus 5.5 | `ANTHROPIC_API_KEY` |
 | `gemini-4-argon` | Google Gemini 4 Argon | `GOOGLE_GENERATIVE_AI_API_KEY` |
+| `grok-4.7` | xAI Grok 4.7 | `XAI_API_KEY` |
 
-GPT-6.1 Sol is called through the Responses API. Claude Opus 5.5 always uses adaptive thinking, so `temperature`, `top_p`, `top_k`, and a forced `tool_choice` are stripped before the request. Retired ids (`gpt-4o`, `gemini-1.5-pro`, `mistral-large`, `claude-3-5-sonnet`, `llama-v3p1-405b`) are not persisted anywhere and are rejected as unsupported. The dashboard file search always calls `gpt-6.1-sol`.
+GPT-6.1 Sol and Grok 4.7 are called through their Responses APIs. Claude Opus 5.5 always uses adaptive thinking, so `temperature`, `top_p`, `top_k`, and a forced `tool_choice` are stripped before the request. Grok 4.7 always reasons, so `presence_penalty`, `frequency_penalty`, and `stop` are stripped. `@ai-sdk/xai` is pinned to 5.0.38 because later releases depend on a newer `@ai-sdk/provider` than `ai` 7.0.162 and fail typecheck; bump it together with `ai` and the other `@ai-sdk/*` providers. Retired ids (`gpt-4o`, `gemini-1.5-pro`, `mistral-large`, `claude-3-5-sonnet`, `llama-v3p1-405b`) are not persisted anywhere and are rejected as unsupported. The dashboard file search always calls `gpt-6.1-sol`.
 
 ## Routes
 
@@ -74,7 +75,7 @@ Storage objects use `users/{uid}/documents/{uuid}-{sanitizedName}` and `Content-
 
 ## Generation
 
-`generateWithChunks` still authenticates, validates the query and chunks (at most 20 chunks, 8,000 characters each, 32,000 total), checks that the selected provider key is set, rate-limits, charges 10 credits, then streams with `@ai-sdk/rsc`. The dashboard Ask button does not call it. Only the three chat model ids above are accepted; any other id is unsupported. An empty key returns "The selected model is not configured".
+`generateWithChunks` still authenticates, validates the query and chunks (at most 20 chunks, 8,000 characters each, 32,000 total), checks that the selected provider key is set, rate-limits, charges 10 credits, then streams with `@ai-sdk/rsc`. The dashboard Ask button does not call it. Only the four chat model ids above are accepted; any other id is unsupported. An empty key returns "The selected model is not configured".
 
 ## Credits and payments
 

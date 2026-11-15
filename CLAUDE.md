@@ -16,7 +16,7 @@ This is a **RAG API Demo** - a full-stack Next.js application demonstrating retr
 - **Database/Storage**: Firebase Firestore + Firebase Storage
 - **Payments**: Stripe
 - **Search**: OpenAI Files API, Vector Stores, and Responses API file search (`openai` npm SDK)
-- **AI Providers**: OpenAI GPT-6.1 Sol, Anthropic Claude Opus 5.5, Google Gemini 4 Argon (via AI SDK, listed in `src/lib/chatModels.ts`)
+- **AI Providers**: OpenAI GPT-6.1 Sol, Anthropic Claude Opus 5.5, Google Gemini 4 Argon, xAI Grok 4.7 (via AI SDK, listed in `src/lib/chatModels.ts`)
 
 ## Common Commands
 
@@ -127,7 +127,7 @@ Uses Vercel AI SDK with streaming responses via `@ai-sdk/rsc`. Supports multiple
 Required environment variables:
 - Firebase Client: `NEXT_PUBLIC_FIREBASE_APIKEY`, `NEXT_PUBLIC_FIREBASE_AUTHDOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECTID`, `NEXT_PUBLIC_FIREBASE_STORAGEBUCKET`, `NEXT_PUBLIC_FIREBASE_MESSAGINGSENDERID`, `NEXT_PUBLIC_FIREBASE_APPID`
 - Firebase Admin: `FIREBASE_PROJECT_ID`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`
-- AI APIs: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`
+- AI APIs: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `XAI_API_KEY`
 - Stripe: `NEXT_PUBLIC_STRIPE_KEY`, `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PRODUCT_NAME`
 - OpenAI file search: `OPENAI_API_KEY` (server only)
 
