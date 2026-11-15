@@ -1,67 +1,45 @@
 "use server";
 
 import { createStreamableValue, type StreamableValue } from "@ai-sdk/rsc";
-import { streamText } from "ai";
-import { createOpenAI, openai } from "@ai-sdk/openai";
+import { streamText, wrapLanguageModel } from "ai";
+import { openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
-import { mistral } from "@ai-sdk/mistral";
 import { anthropic } from "@ai-sdk/anthropic";
 import { verifyFirebaseIdToken } from "@/firebase/firebaseAdmin";
 import { CREDIT_COSTS } from "@/lib/billing";
+import { callParamsMiddleware, getChatModel, type ChatModelId } from "@/lib/chatModels";
 import { withCredits } from "@/lib/credits";
 import { assertChunks, assertQuery } from "@/lib/inputLimits";
 import { actionFailure, mapKnownActionError, type ActionResult } from "@/lib/actionResult";
 import { chunkAnswerPrompt, forwardGenerationStream } from "@/lib/generationStream";
 import { RATE_LIMITS, assertRateLimit } from "@/lib/rateLimit";
 
-const fireworks = createOpenAI({
-  apiKey: process.env.FIREWORKS_API_KEY ?? "",
-  baseURL: "https://api.fireworks.ai/inference/v1",
-});
-
-function providerKey(modelName: string): string | null {
-  switch (modelName) {
-    case "gpt-4o":
-      return process.env.OPENAI_API_KEY ?? "";
-    case "gemini-1.5-pro":
-      return process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? "";
-    case "mistral-large":
-      return process.env.MISTRAL_API_KEY ?? "";
-    case "claude-3-5-sonnet":
-      return process.env.ANTHROPIC_API_KEY ?? "";
-    case "llama-v3p1-405b":
-      return process.env.FIREWORKS_API_KEY ?? "";
-    default:
-      return null;
+function assertProviderConfigured(modelName: string): ChatModelId {
+  const model = getChatModel(modelName);
+  if (!process.env[model.apiKeyEnv]?.trim()) {
+    throw new Error("The selected model is not configured");
   }
+  return model.id;
 }
 
-function assertProviderConfigured(modelName: string) {
-  const apiKey = providerKey(modelName);
-  if (apiKey === null) {
-    throw new Error(`Unsupported model name: ${modelName}`);
-  }
-  if (!apiKey.trim()) {
-    throw new Error("The selected model is not configured");
+function providerModel(modelId: ChatModelId) {
+  switch (modelId) {
+    case "gpt-6.1-sol":
+      // Tool calling on GPT-6.1 Sol requires the Responses API.
+      return openai.responses("gpt-6.1-sol");
+    case "claude-opus-5-5":
+      return anthropic("claude-opus-5-5");
+    case "gemini-4-argon":
+      return google("gemini-4-argon");
   }
 }
 
 async function getModel(modelName: string) {
-  assertProviderConfigured(modelName);
-  switch (modelName) {
-    case "gpt-4o":
-      return openai("gpt-4o");
-    case "gemini-1.5-pro":
-      return google("models/gemini-1.5-pro-latest");
-    case "mistral-large":
-      return mistral("mistral-large-latest");
-    case "claude-3-5-sonnet":
-      return anthropic("claude-3-5-sonnet-20241022");
-    case "llama-v3p1-405b":
-      return fireworks("accounts/fireworks/models/llama-v3p1-405b-instruct");
-    default:
-      throw new Error(`Unsupported model name: ${modelName}`);
-  }
+  const modelId = assertProviderConfigured(modelName);
+  return wrapLanguageModel({
+    model: providerModel(modelId),
+    middleware: callParamsMiddleware(modelId),
+  });
 }
 
 const SYSTEM_PROMPT_TEMPLATE = `You are a professional but friendly AI chatbot working as an assistant to the user.

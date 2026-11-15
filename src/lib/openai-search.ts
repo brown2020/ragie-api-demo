@@ -2,11 +2,8 @@ import OpenAI, { toFile } from "openai";
 import { runInOrder } from "./runInOrder";
 import { sanitizeFileName } from "./storageAccess";
 
-/**
- * The dashboard already calls this model. File search reuses it for the
- * Responses API instead of introducing a new model id.
- */
-export const FILE_SEARCH_MODEL = "gpt-4o";
+/** Same id as the default chat model; it supports the Responses `file_search` tool. */
+export const FILE_SEARCH_MODEL = "gpt-6.1-sol";
 
 export const OPENAI_KEY_MISSING_MESSAGE =
   "OpenAI API key is missing. Set the OPENAI_API_KEY server environment variable.";

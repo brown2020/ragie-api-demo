@@ -23,6 +23,7 @@ import {
   sourcesFromResponse,
   type SearchApi,
 } from "./openai-search";
+import { DEFAULT_CHAT_MODEL } from "./chatModels";
 import { indexedFileDocPath, isEvenDocumentPath, vectorStoreDocPath } from "./searchPaths";
 
 function fakeApi(overrides: Partial<SearchApi> = {}): SearchApi {
@@ -51,10 +52,11 @@ describe("openai file search", () => {
     else process.env.OPENAI_API_KEY = previous;
   });
 
-  it("reuses the app model id for the Responses file_search call", () => {
+  it("uses GPT-6.1 Sol for the Responses file_search call", () => {
     const request = buildFileSearchRequest("vs_123", "where is the policy?");
-    expect(request.model).toBe("gpt-4o");
+    expect(request.model).toBe("gpt-6.1-sol");
     expect(request.model).toBe(FILE_SEARCH_MODEL);
+    expect(request.model).toBe(DEFAULT_CHAT_MODEL);
     expect(request.tools).toEqual([
       { type: "file_search", vector_store_ids: ["vs_123"] },
     ]);

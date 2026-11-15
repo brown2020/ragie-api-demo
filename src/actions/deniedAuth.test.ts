@@ -73,7 +73,7 @@ describe("denied mutation (auth boundary)", () => {
   });
 
   it("generateWithChunks rejects an empty id token", async () => {
-    const result = await generateWithChunks(["chunk"], "what is rag?", "gpt-4o", "");
+    const result = await generateWithChunks(["chunk"], "what is rag?", "gpt-6.1-sol", "");
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.status).toBe(401);
