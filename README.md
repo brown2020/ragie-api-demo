@@ -9,7 +9,7 @@ A Next.js demo of a user-scoped **retrieval-augmented generation (RAG)** workflo
 - **Firebase Auth** — email/password, Google sign-in, and email-link sign-in. Server actions verify a Firebase ID token and derive the UID server-side.
 - **Document management** — upload PDF, plain text, Markdown, CSV, DOC, DOCX, XLSX, or PPTX files (32 MB max) to Firebase Storage under a unique `users/{uid}/documents/{uuid}-{name}` path, and track metadata in Firestore. There is no user-facing delete control; a failed metadata write deletes the Storage object as cleanup.
 - **OpenAI file search** — the server reads the user's Storage object with the Admin SDK (it does not fetch a caller-supplied URL), uploads it with the OpenAI Files API, and attaches it to one vector store per Firebase uid. Retrieval uses vector store search. Questions use the Responses API `file_search` tool and show the cited files.
-- **Generation** — cited answers use the existing `gpt-4o` model id through the Responses API. The server action `generateWithChunks` can still call Google `gemini-1.5-pro`, Mistral `mistral-large`, Anthropic `claude-3-5-sonnet`, or Fireworks `llama-v3p1-405b` when those model ids are passed. The dashboard does not expose a model picker.
+- **Generation** — cited answers use `gpt-6.1-sol` through the Responses API. The server action `generateWithChunks` accepts exactly three chat models: OpenAI `gpt-6.1-sol` (default), Anthropic `claude-opus-5-5`, and Google `gemini-4-argon`, listed in `src/lib/chatModels.ts`. The dashboard does not expose a model picker.
 - **Credits and Stripe** — new profiles start with 1,000 credits. A catalog pack is 10,000 credits for $99.99. Upload costs 5, retrieval costs 1, and generation costs 10; the debit is refunded if the provider call throws. Intents are created and fulfilled server-side against the Firebase UID. `POST /api/stripe/webhook` accepts a signed `payment_intent.succeeded` event when `STRIPE_WEBHOOK_SECRET` is set; without that secret the route returns 503 and the success page still fulfills the payment idempotently.
 - **Profile** — view auth details, credit balance, and payment history. The page does not edit profile fields.
 - **Baseline headers** — CSP, `X-Frame-Options`, `nosniff`, Referrer-Policy, and Permissions-Policy on every route. HSTS is sent only when `NODE_ENV=production`.
@@ -85,10 +85,8 @@ Copy `.env.example` to `.env.local` and fill in your own values. Never commit re
 | Variable | Required for | Purpose |
 | --- | --- | --- |
 | `OPENAI_API_KEY` | Indexing, search, and cited answers | OpenAI API key. Server only. Missing key returns a clear error |
-| `ANTHROPIC_API_KEY` | Only if that model is called | Anthropic |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | Only if that model is called | Google Gemini |
-| `MISTRAL_API_KEY` | Only if that model is called | Mistral |
-| `FIREWORKS_API_KEY` | Only if that model is called | Fireworks |
+| `ANTHROPIC_API_KEY` | Only if `claude-opus-5-5` is called | Anthropic |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Only if `gemini-4-argon` is called | Google Gemini |
 | `NEXT_PUBLIC_STRIPE_KEY` | Checkout UI | Stripe publishable key |
 | `STRIPE_SECRET_KEY` | Creating and fulfilling payments | Stripe secret key (server) |
 | `STRIPE_WEBHOOK_SECRET` | Optional | Webhook signing secret. Unset: route returns 503 |

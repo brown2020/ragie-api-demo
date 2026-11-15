@@ -10,7 +10,7 @@ Demonstrate a user-scoped RAG loop:
 2. Upload an allowed document to Firebase Storage and record metadata in Firestore.
 3. Index that Storage object with the OpenAI Files API into one vector store for the Firebase uid.
 4. Retrieve chunks for a query from that vector store.
-5. Answer the question with the Responses API `file_search` tool and show cited sources. The model id is the existing `gpt-4o`.
+5. Answer the question with the Responses API `file_search` tool and show cited sources. The model id is `gpt-6.1-sol`.
 6. Meter the loop with credits purchased through Stripe.
 
 ## Stack
@@ -19,22 +19,20 @@ Demonstrate a user-scoped RAG loop:
 - Tailwind CSS 4.
 - Firebase Auth, Firestore, and Storage on the client; Firebase Admin 14 on the server.
 - OpenAI official `openai` npm SDK: Files API (`purpose: assistants`), one vector store per uid, and Responses API `file_search`. `OPENAI_API_KEY` is read only on the server. A missing key returns an error result and does not throw to the browser.
-- Vercel AI SDK (`ai` 7, `@ai-sdk/rsc`) remains available for the existing multi-model `generateWithChunks` action. Dashboard questions do not use that path.
+- Vercel AI SDK (`ai` 7, `@ai-sdk/rsc`) remains available for the three-model `generateWithChunks` action. Dashboard questions do not use that path.
 - Stripe 23 for a single catalog PaymentIntent.
 - Zustand for auth, profile, and payment client state.
 - Vitest for unit tests. GitHub Actions runs lint, typecheck, test, and production build on Node 24 without secrets.
 
-Model ids are part of the product behavior and are not changed by dependency maintenance:
+Model ids are part of the product behavior and are not changed by dependency maintenance. `src/lib/chatModels.ts` is the only list of chat models:
 
-| Caller id | Provider model |
-| --- | --- |
-| `gpt-4o` | `gpt-4o` |
-| `gemini-1.5-pro` | `models/gemini-1.5-pro-latest` |
-| `mistral-large` | `mistral-large-latest` |
-| `claude-3-5-sonnet` | `claude-3-5-sonnet-20241022` |
-| `llama-v3p1-405b` | `accounts/fireworks/models/llama-v3p1-405b-instruct` |
+| Caller id | Label | Provider key |
+| --- | --- | --- |
+| `gpt-6.1-sol` (default) | OpenAI GPT-6.1 Sol | `OPENAI_API_KEY` |
+| `claude-opus-5-5` | Anthropic Claude Opus 5.5 | `ANTHROPIC_API_KEY` |
+| `gemini-4-argon` | Google Gemini 4 Argon | `GOOGLE_GENERATIVE_AI_API_KEY` |
 
-The dashboard always calls `gpt-4o`.
+GPT-6.1 Sol is called through the Responses API. Claude Opus 5.5 always uses adaptive thinking, so `temperature`, `top_p`, `top_k`, and a forced `tool_choice` are stripped before the request. Retired ids (`gpt-4o`, `gemini-1.5-pro`, `mistral-large`, `claude-3-5-sonnet`, `llama-v3p1-405b`) are not persisted anywhere and are rejected as unsupported. The dashboard file search always calls `gpt-6.1-sol`.
 
 ## Routes
 
@@ -72,11 +70,11 @@ Storage objects use `users/{uid}/documents/{uuid}-{sanitizedName}` and `Content-
 
 `retrieveChunks` authenticates, caps the query at 4,000 characters, rate-limits, charges 1 credit, and searches that vector store.
 
-`askDocuments` authenticates, rate-limits, charges 10 credits, and calls the Responses API with `file_search` and model `gpt-4o`. Before answering, it detaches vector-store files that do not match a current document, and extra copies of a current document, keeping the saved file id. Citations are limited to those documents, grouped one per document, with snippets merged and empty entries dropped. The dashboard calls it through `POST /api/search/ask`. `deleteDocument` removes the Firestore document before the slower Storage and vector-store cleanup, so a reload cannot show it again. It removes every vector-store copy of that document (saved file id, document tag, and the same filename) and deletes those OpenAI files. The dashboard waits for that result, checks the document is gone, and only then removes the row. A failure stays on screen and leaves the row in place when the document is still there. A status poll or a finishing index does not write a mapping or the indexed flag after the document is gone. A missing OpenAI file, Storage object, or Firestore document is treated as already gone. Re-index uses the same index action, which removes the previous copy before attaching. The document list is newest `createdAt` first, then id descending.
+`askDocuments` authenticates, rate-limits, charges 10 credits, and calls the Responses API with `file_search` and model `gpt-6.1-sol`. Before answering, it detaches vector-store files that do not match a current document, and extra copies of a current document, keeping the saved file id. Citations are limited to those documents, grouped one per document, with snippets merged and empty entries dropped. The dashboard calls it through `POST /api/search/ask`. `deleteDocument` removes the Firestore document before the slower Storage and vector-store cleanup, so a reload cannot show it again. It removes every vector-store copy of that document (saved file id, document tag, and the same filename) and deletes those OpenAI files. The dashboard waits for that result, checks the document is gone, and only then removes the row. A failure stays on screen and leaves the row in place when the document is still there. A status poll or a finishing index does not write a mapping or the indexed flag after the document is gone. A missing OpenAI file, Storage object, or Firestore document is treated as already gone. Re-index uses the same index action, which removes the previous copy before attaching. The document list is newest `createdAt` first, then id descending.
 
 ## Generation
 
-`generateWithChunks` still authenticates, validates the query and chunks (at most 20 chunks, 8,000 characters each, 32,000 total), checks that the selected provider key is set, rate-limits, charges 10 credits, then streams with `@ai-sdk/rsc`. The dashboard Ask button does not call it. An unknown model id is unsupported. An empty key returns "The selected model is not configured". Model ids are unchanged.
+`generateWithChunks` still authenticates, validates the query and chunks (at most 20 chunks, 8,000 characters each, 32,000 total), checks that the selected provider key is set, rate-limits, charges 10 credits, then streams with `@ai-sdk/rsc`. The dashboard Ask button does not call it. Only the three chat model ids above are accepted; any other id is unsupported. An empty key returns "The selected model is not configured".
 
 ## Credits and payments
 
@@ -119,5 +117,5 @@ See `README.md` for the env var name list. Server secrets stay in server actions
 - Deploying Firebase rules or indexes (there is no `firestore.indexes.json`).
 - Changing Vercel project settings or env values.
 - Rotating or printing secrets.
-- Changing AI provider model ids.
+- Changing AI provider model ids outside a dedicated model update.
 - Promoting `dev` to `main`.
