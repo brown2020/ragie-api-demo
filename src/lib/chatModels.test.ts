@@ -24,16 +24,18 @@ async function transform(
 }
 
 describe("chat models", () => {
-  it("offers exactly the three current flagships", () => {
+  it("offers exactly the four current flagships", () => {
     expect(CHAT_MODELS.map((model) => model.id)).toEqual([
       "gpt-6.1-sol",
       "claude-opus-5-5",
       "gemini-4-argon",
+      "grok-4.7",
     ]);
     expect(CHAT_MODELS.map((model) => model.label)).toEqual([
       "OpenAI GPT-6.1 Sol",
       "Anthropic Claude Opus 5.5",
       "Google Gemini 4 Argon",
+      "xAI Grok 4.7",
     ]);
   });
 
@@ -46,6 +48,7 @@ describe("chat models", () => {
     expect(getChatModel("gpt-6.1-sol").apiKeyEnv).toBe("OPENAI_API_KEY");
     expect(getChatModel("claude-opus-5-5").apiKeyEnv).toBe("ANTHROPIC_API_KEY");
     expect(getChatModel("gemini-4-argon").apiKeyEnv).toBe("GOOGLE_GENERATIVE_AI_API_KEY");
+    expect(getChatModel("grok-4.7").apiKeyEnv).toBe("XAI_API_KEY");
   });
 
   it.each([
@@ -57,6 +60,9 @@ describe("chat models", () => {
     "claude-3-5-sonnet-20241022",
     "llama-v3p1-405b",
     "anthropic/claude-opus-5.5",
+    "spacexai/grok-4.7",
+    "xai/grok-4.7",
+    "grok-4-7",
     "",
   ])("rejects retired or unknown id %j", (id) => {
     expect(isChatModelId(id)).toBe(false);
@@ -86,12 +92,32 @@ describe("chat models", () => {
     expect(none).toEqual({ prompt, toolChoice: { type: "none" } });
   });
 
+  it("strips penalties and stop sequences for Grok 4.7", async () => {
+    const result = await transform("grok-4.7", {
+      presencePenalty: 0.5,
+      frequencyPenalty: 0.5,
+      stopSequences: ["END"],
+      temperature: 0.2,
+      maxOutputTokens: 1000,
+      toolChoice: { type: "required" },
+    });
+    expect(result).toEqual({
+      prompt,
+      temperature: 0.2,
+      maxOutputTokens: 1000,
+      toolChoice: { type: "required" },
+    });
+  });
+
   it.each(["gpt-6.1-sol", "gemini-4-argon"] as const)(
     "passes call params through unchanged for %s",
     async (modelId) => {
       const params = {
         temperature: 0.2,
         topP: 0.9,
+        presencePenalty: 0.5,
+        frequencyPenalty: 0.5,
+        stopSequences: ["END"],
         toolChoice: { type: "required" },
       };
       expect(await transform(modelId, params)).toEqual({ prompt, ...params });

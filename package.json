@@ -16,6 +16,7 @@
     "@ai-sdk/google": "^4.0.111",
     "@ai-sdk/openai": "^4.0.108",
     "@ai-sdk/rsc": "^3.0.162",
+    "@ai-sdk/xai": "5.0.38",
     "@stripe/react-stripe-js": "^7.0.1",
     "@stripe/stripe-js": "^10.2.1",
     "@tailwindcss/typography": "^0.5.20",

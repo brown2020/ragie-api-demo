@@ -1,13 +1,17 @@
 import type { LanguageModelMiddleware } from "ai";
 
-export type ChatProvider = "openai" | "anthropic" | "google";
+export type ChatProvider = "openai" | "anthropic" | "google" | "xai";
 
 export type ChatModel = {
   id: string;
   label: string;
   provider: ChatProvider;
   /** Server environment variable that holds the provider key. */
-  apiKeyEnv: "OPENAI_API_KEY" | "ANTHROPIC_API_KEY" | "GOOGLE_GENERATIVE_AI_API_KEY";
+  apiKeyEnv:
+    | "OPENAI_API_KEY"
+    | "ANTHROPIC_API_KEY"
+    | "GOOGLE_GENERATIVE_AI_API_KEY"
+    | "XAI_API_KEY";
 };
 
 export const CHAT_MODELS = [
@@ -29,6 +33,12 @@ export const CHAT_MODELS = [
     provider: "google",
     apiKeyEnv: "GOOGLE_GENERATIVE_AI_API_KEY",
   },
+  {
+    id: "grok-4.7",
+    label: "xAI Grok 4.7",
+    provider: "xai",
+    apiKeyEnv: "XAI_API_KEY",
+  },
 ] as const satisfies readonly ChatModel[];
 
 export type ChatModelId = (typeof CHAT_MODELS)[number]["id"];
@@ -39,7 +49,7 @@ export function isChatModelId(value: unknown): value is ChatModelId {
   return CHAT_MODELS.some((model) => model.id === value);
 }
 
-/** Throws the "Unsupported model name" error for anything outside the three ids. */
+/** Throws the "Unsupported model name" error for anything outside `CHAT_MODELS`. */
 export function getChatModel(modelName: string): (typeof CHAT_MODELS)[number] {
   const model = CHAT_MODELS.find((entry) => entry.id === modelName);
   if (!model) {
@@ -55,20 +65,31 @@ type CallParams = Parameters<
 /**
  * Claude Opus 5.5 always runs adaptive thinking and rejects temperature,
  * top_p, top_k, and a forced tool_choice ("required" or a named tool).
+ * Grok 4.7 always reasons and rejects presence_penalty, frequency_penalty,
+ * and stop.
  */
 export function stripUnsupportedCallParams(
   modelId: ChatModelId,
   params: CallParams
 ): CallParams {
-  if (modelId !== "claude-opus-5-5") return params;
-  const next = { ...params };
-  delete next.temperature;
-  delete next.topP;
-  delete next.topK;
-  if (next.toolChoice?.type === "required" || next.toolChoice?.type === "tool") {
-    delete next.toolChoice;
+  if (modelId === "claude-opus-5-5") {
+    const next = { ...params };
+    delete next.temperature;
+    delete next.topP;
+    delete next.topK;
+    if (next.toolChoice?.type === "required" || next.toolChoice?.type === "tool") {
+      delete next.toolChoice;
+    }
+    return next;
   }
-  return next;
+  if (modelId === "grok-4.7") {
+    const next = { ...params };
+    delete next.presencePenalty;
+    delete next.frequencyPenalty;
+    delete next.stopSequences;
+    return next;
+  }
+  return params;
 }
 
 export function callParamsMiddleware(modelId: ChatModelId): LanguageModelMiddleware {

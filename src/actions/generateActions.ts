@@ -5,6 +5,7 @@ import { streamText, wrapLanguageModel } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
 import { anthropic } from "@ai-sdk/anthropic";
+import { xai } from "@ai-sdk/xai";
 import { verifyFirebaseIdToken } from "@/firebase/firebaseAdmin";
 import { CREDIT_COSTS } from "@/lib/billing";
 import { callParamsMiddleware, getChatModel, type ChatModelId } from "@/lib/chatModels";
@@ -31,6 +32,8 @@ function providerModel(modelId: ChatModelId) {
       return anthropic("claude-opus-5-5");
     case "gemini-4-argon":
       return google("gemini-4-argon");
+    case "grok-4.7":
+      return xai.responses("grok-4.7");
   }
 }
 
